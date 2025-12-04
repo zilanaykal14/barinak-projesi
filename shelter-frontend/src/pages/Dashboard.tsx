@@ -1,4 +1,3 @@
-
 // @ts-nocheck
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -39,13 +38,13 @@ export default function Dashboard() {
     }
   }, []);
 
-  // --- KESİN URL DÜZELTİCİ ---
+  // --- GELİŞMİŞ URL DÜZELTİCİ (Resimler için) ---
   const getImageUrl = (url) => {
     if (!url) return "https://placehold.co/100";
     const strUrl = String(url);
 
-    // Eğer localhost veya 127.0.0.1 varsa veya uploads geçiyorsa TEMİZLE
-    if (strUrl.includes("uploads") || strUrl.includes("127.0.0.1")) {
+    // Eğer localhost, 127.0.0.1 veya uploads geçiyorsa TEMİZLE
+    if (strUrl.includes("uploads") || strUrl.includes("127.0.0.1") || strUrl.includes("localhost")) {
       const parcalar = strUrl.split("uploads");
       const dosyaAdi = parcalar[parcalar.length - 1].replace(/\\/g, "/");
       const temizYol = dosyaAdi.startsWith('/') ? dosyaAdi : '/' + dosyaAdi;
@@ -78,26 +77,56 @@ export default function Dashboard() {
     } catch (error) { console.error(error); }
   };
 
-  // --- ÇAKIŞMA ÖNLEYİCİ ONAY SİSTEMİ ---
+  // --- AKILLI VE GÜVENLİ ONAY SİSTEMİ ---
   const handleBildirimGuncelle = async (bildirim, yeniDurum) => {
     try {
+      // 1. GÜVENLİK KONTROLÜ: Eğer onaylıyorsak, hayvan HALA boş mu diye bak!
+      if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme' && bildirim.hayvanId) {
+         // Hayvanın güncel bilgisini sunucudan çek
+         const hayvanKontrol = await axios.get(`${API_URL}/hayvan/${bildirim.hayvanId}`);
+         const guncelHayvan = hayvanKontrol.data;
+
+         // Eğer hayvan zaten "Sahiplendirildi" ise işlemi DURDUR
+         if (guncelHayvan.durum === 'Sahiplendirildi') {
+            alert("⚠️ HATA: Bu hayvan az önce başkası tarafından sahiplendirildi! İşlem yapılamaz.");
+            fetchData(user); // Listeyi yenile ki gerçeği görsün
+            return; // Fonksiyonu burada bitir
+         }
+      }
+
+      // 2. Engel yoksa işleme devam et
       await axios.patch(`${API_URL}/bildirim/${bildirim.id}`, { durum: yeniDurum });
 
+      // 3. Eğer onay verildiyse diğer işlemleri yap
       if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme' && bildirim.hayvanId) {
-        // Hayvanı sahiplendirildi yap
+        
+        // Hayvanı "Sahiplendirildi" yap
         await axios.patch(`${API_URL}/hayvan/${bildirim.hayvanId}`, { durum: 'Sahiplendirildi' });
         
         // Diğer bekleyenleri bul ve reddet
-        const digerleri = bildirimler.filter(b => b.hayvanId === bildirim.hayvanId && b.id !== bildirim.id && b.durum === 'Bekliyor');
+        // Not: Burada sunucudan taze veri çekip filtrelemek daha güvenlidir ama şimdilik eldeki listeden yapıyoruz
+        const digerleri = bildirimler.filter(b => 
+            b.hayvanId === bildirim.hayvanId && 
+            b.id !== bildirim.id && 
+            b.durum === 'Bekliyor'
+        );
+
         for (const istek of digerleri) {
            await axios.patch(`${API_URL}/bildirim/${istek.id}`, { durum: 'Reddedildi' });
         }
-        alert("Onaylandı! Diğer istekler otomatik reddedildi.");
+
+        alert("✅ İstek onaylandı! Hayvan sahiplendirildi ve sıradaki diğer istekler reddedildi.");
       } else {
-        alert("İşlem Başarılı.");
+        alert(`İşlem Başarılı: ${yeniDurum}`);
       }
+
+      // Her şey bitince sayfayı yenile
       fetchData(user);
-    } catch (error) { alert("Hata!"); }
+    } catch (error) { 
+        console.error("Hata detayı:", error);
+        alert("Bir hata oluştu! (Hayvan silinmiş veya sunucu hatası olabilir)"); 
+        fetchData(user);
+    }
   };
 
   const handleSave = async (e) => {
@@ -123,7 +152,7 @@ export default function Dashboard() {
     } catch (error) { alert("Hata!"); }
   };
 
-  // Diğer Yardımcı Fonksiyonlar
+  // --- Yardımcı Fonksiyonlar ---
   const handleIhbarGonder = async (e) => { e.preventDefault(); await axios.post(`${API_URL}/bildirim`, { tip: 'ihbar', mesaj: ihbarMesaj, gonderenAd: user.fullName, durum: 'Bekliyor' }); setIsIhbarOpen(false); fetchData(user); };
   const handleSahiplenmeIstegi = async (hayvan) => { if(confirm("İstek gönderilsin mi?")) { await axios.post(`${API_URL}/bildirim`, { tip: 'sahiplenme', mesaj: `Talibim: ${hayvan.ad}`, gonderenAd: user.fullName, hayvanId: hayvan.id, durum: 'Bekliyor' }); alert("Gönderildi!"); fetchData(user); }};
   const handleBildirimSil = async (id) => { if(confirm("Silinsin mi?")) { await axios.delete(`${API_URL}/bildirim/${id}`); fetchData(user); }};
