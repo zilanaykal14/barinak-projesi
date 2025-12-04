@@ -199,12 +199,17 @@ export default function Dashboard() {
                       <tr key={hayvan.id} className="hover:bg-gray-50">
                         {/* --- DÜZELTİLEN RESİM KISMI --- */}
                         <td className="px-6 py-4">
-                          <img 
-                            src={resimUrlDuzelt(hayvan.resimUrl)} 
-                            alt={hayvan.ad} 
-                            className="w-10 h-10 rounded-full object-cover border border-gray-200" 
-                            onError={(e) => { e.currentTarget.src = "https://placehold.co/100"; }}
-                          />
+                        <img 
+  // BURAYA DİKKAT: Gelen veriyi parçalayıp zorla Render adresini yapıştırıyoruz
+  src={
+    hayvan.resimUrl && hayvan.resimUrl.includes('uploads')
+      ? `https://barinak-projesi.onrender.com/uploads/${hayvan.resimUrl.split('uploads/').pop()}`
+      : (hayvan.resimUrl || "https://placehold.co/100")
+  }
+  alt={hayvan.ad} 
+  className="w-10 h-10 rounded-full object-cover border border-gray-200"
+  onError={(e) => { e.currentTarget.src = "https://placehold.co/100"; }}
+/>
                         </td>
                         {/* ----------------------------- */}
                         <td className="px-6 py-4 font-bold text-gray-900">{hayvan.ad}</td>
