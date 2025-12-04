@@ -4,12 +4,14 @@ import axios from "axios";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  // Tür tanımlamaları eklendi (any)
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("animals");
 
   // CANLI BACKEND ADRESİ
   const API_URL = "https://barinak-projesi.onrender.com";
 
+  // TypeScript için liste türleri
   const [hayvanlar, setHayvanlar] = useState<any[]>([]); 
   const [irklar, setIrklar] = useState<any[]>([]);
   const [asilar, setAsilar] = useState<any[]>([]);
@@ -22,6 +24,7 @@ export default function Dashboard() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const [ihbarMesaj, setIhbarMesaj] = useState("");
+  // Form verisi için tür belirleme
   const [formData, setFormData] = useState({
     ad: "", yas: "", cinsiyet: "Disi", durum: "Sahiplendirilebilir", resimUrl: "", irkId: "", cipNo: "", secilenAsilar: [] as string[]
   });
@@ -36,6 +39,27 @@ export default function Dashboard() {
       fetchData(parsedUser);
     }
   }, []);
+
+  // --- HATA DÜZELTEN FONKSİYON (TypeScript Uyumlu) ---
+  const resimUrlDuzelt = (url: string) => {
+    if (!url) return "https://placehold.co/100";
+
+    // 1. URL içinde "uploads" geçiyorsa (localhost veya IP olsa bile)
+    if (url.includes("uploads")) {
+        const parcalar = url.split("uploads");
+        // Son parçayı al (örn: /kedi.jpg)
+        const dosyaYolu = parcalar[parcalar.length - 1]; 
+        // Temiz link oluştur
+        return `${API_URL}/uploads${dosyaYolu}`;
+    }
+
+    // 2. Normal internet linki ise dokunma
+    if (url.startsWith("http")) return url;
+
+    // 3. Hiçbiri değilse başına API_URL ekle
+    return `${API_URL}${url}`;
+  };
+  // ---------------------------------------------------
 
   const fetchData = async (currentUser?: any) => {
     try {
@@ -176,18 +200,9 @@ export default function Dashboard() {
                         {/* --- DÜZELTİLEN RESİM KISMI --- */}
                         <td className="px-6 py-4">
                           <img 
-                            src={
-                              !hayvan.resimUrl 
-                                ? "https://placehold.co/100" 
-                                : hayvan.resimUrl.startsWith("http")
-                                    // Localhost linklerini canlı sunucu linkine çevir
-                                    ? hayvan.resimUrl.replace("http://127.0.0.1:3333", API_URL).replace("http://localhost:3333", API_URL)
-                                    // Link değilse (örn: /uploads/...) başına canlı sunucu adresini ekle
-                                    : `${API_URL}${hayvan.resimUrl}`
-                            } 
+                            src={resimUrlDuzelt(hayvan.resimUrl)} 
                             alt={hayvan.ad} 
                             className="w-10 h-10 rounded-full object-cover border border-gray-200" 
-                            // Resim yine de açılmazsa placeholder göster
                             onError={(e) => { e.currentTarget.src = "https://placehold.co/100"; }}
                           />
                         </td>
