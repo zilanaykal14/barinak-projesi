@@ -39,22 +39,8 @@ export default function Dashboard() {
     }
   }, []);
 
-  // --- BEKLEYEN BİLDİRİM SAYISINI HESAPLA ---
+  // Kırmızı Bildirim Işığı İçin Sayı
   const bekleyenSayisi = bildirimler.filter(b => b.durum === 'Bekliyor').length;
-
-  // --- KESİN URL DÜZELTİCİ ---
-  const getImageUrl = (url) => {
-    if (!url) return "https://placehold.co/100";
-    const strUrl = String(url);
-    if (strUrl.includes("uploads") || strUrl.includes("127.0.0.1") || strUrl.includes("localhost")) {
-      const parcalar = strUrl.split("uploads");
-      const dosyaAdi = parcalar[parcalar.length - 1].replace(/\\/g, "/");
-      const temizYol = dosyaAdi.startsWith('/') ? dosyaAdi : '/' + dosyaAdi;
-      return `${API_URL}/uploads${temizYol}`;
-    }
-    if (strUrl.startsWith("http")) return strUrl;
-    return `${API_URL}${strUrl}`;
-  };
 
   const fetchData = async (currentUser) => {
     try {
@@ -75,58 +61,80 @@ export default function Dashboard() {
     } catch (error) { console.error(error); }
   };
 
-  // --- GÜÇLENDİRİLMİŞ ONAY SİSTEMİ ---
+  // --- URL DÜZELTİCİ ---
+  const getImageUrl = (url) => {
+    if (!url) return "https://placehold.co/100";
+    const strUrl = String(url);
+    if (strUrl.includes("uploads") || strUrl.includes("127.0.0.1") || strUrl.includes("localhost")) {
+      const parcalar = strUrl.split("uploads");
+      const dosyaAdi = parcalar[parcalar.length - 1].replace(/\\/g, "/");
+      const temizYol = dosyaAdi.startsWith('/') ? dosyaAdi : '/' + dosyaAdi;
+      return `${API_URL}/uploads${temizYol}`;
+    }
+    if (strUrl.startsWith("http")) return strUrl;
+    return `${API_URL}${strUrl}`;
+  };
+
+  // --- GÜVENLİK KONTROLLÜ ONAY SİSTEMİ ---
   const handleBildirimGuncelle = async (bildirim, yeniDurum) => {
     try {
+      // 1. Hayvan ID'sini bul
       const hedefHayvanId = bildirim.hayvanId || (bildirim.hayvan && bildirim.hayvan.id);
 
-      // 1. ÖNCE HAYVANI KONTROL ET (Sunucudan Taze Bilgi Al)
+      // --- KRİTİK KONTROL: Eğer ONAY veriyorsak, önce hayvanın durumuna bak! ---
       if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme') {
-         const hayvanKontrol = await axios.get(`${API_URL}/hayvan/${hedefHayvanId}`);
-         const guncelHayvan = hayvanKontrol.data;
+          // Veritabanından hayvanın SON halini çek
+          const hayvanCevap = await axios.get(`${API_URL}/hayvan/${hedefHayvanId}`);
+          const guncelHayvan = hayvanCevap.data;
 
-         // Eğer hayvan zaten sahiplendirildiyse DUR!
-         if (guncelHayvan.durum === 'Sahiplendirildi') {
-            alert("⚠️ BU İŞLEM YAPILAMAZ!\nBu hayvan az önce başkasına verildi.");
-            window.location.reload(); 
-            return;
-         }
+          // Eğer hayvan zaten sahiplendirildiyse DUR!
+          if (guncelHayvan.durum === 'Sahiplendirildi') {
+              alert("⛔ DUR! Bu hayvan az önce başkasına verildi.\nBu isteği onaylayamazsın.");
+              // Ekrandaki yanlış bilgiyi düzeltmek için sayfayı yenile
+              window.location.reload(); 
+              return; 
+          }
       }
+      // -----------------------------------------------------------------------
 
-      // 2. İşlemi Yap
+      // 2. Engel yoksa, Bildirimi Güncelle
       await axios.patch(`${API_URL}/bildirim/${bildirim.id}`, { durum: yeniDurum });
 
-      // 3. Onay verildiyse toplu temizlik yap
+      // 3. Eğer Onaylandıysa, Temizlik Yap
       if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme') {
         
-        // Hayvanı kapat
+        // A. Hayvanı kilitle
         await axios.patch(`${API_URL}/hayvan/${hedefHayvanId}`, { durum: 'Sahiplendirildi' });
         
-        // Diğer bekleyenleri bul
-        const digerleri = bildirimler.filter(b => {
-            const bHayvanId = b.hayvanId || (b.hayvan && b.hayvan.id);
-            return String(bHayvanId) === String(hedefHayvanId) && 
-                   String(b.id) !== String(bildirim.id) && 
-                   b.durum === 'Bekliyor';
+        // B. Veritabanındaki TÜM bildirimleri yeniden çek (State'e güvenme)
+        const guncelBildirimler = await axios.get(`${API_URL}/bildirim`);
+        const tumIstekler = guncelBildirimler.data;
+
+        // C. Aynı hayvana ait diğer BEKLEYEN istekleri bul
+        const digerleri = tumIstekler.filter(b => {
+             const bId = b.hayvanId || (b.hayvan && b.hayvan.id);
+             return String(bId) === String(hedefHayvanId) && // Aynı hayvan
+                    String(b.id) !== String(bildirim.id) &&  // Bizim onayladığımız hariç
+                    b.durum === 'Bekliyor';                  // Bekleyenler
         });
 
-        // Hepsini reddet
+        // D. Hepsini Reddet
         for (const istek of digerleri) {
            await axios.patch(`${API_URL}/bildirim/${istek.id}`, { durum: 'Reddedildi' });
         }
 
-        alert("✅ ONAYLANDI! Diğer bekleyen istekler otomatik reddedildi.");
+        alert("✅ İşlem Tamam! İstek onaylandı, diğer bekleyenler otomatik reddedildi.");
         
-        // EKRANI ZORLA YENİLE (Hata riskini sıfıra indirmek için)
+        // Risk almamak için sayfayı yenile
         window.location.reload();
       } else {
-        alert(`İşlem Başarılı: ${yeniDurum}`);
+        // Reddetme işlemiyse normal devam et
         fetchData(user);
       }
 
     } catch (error) { 
-        console.error("Hata:", error);
-        alert("Bir hata oluştu!"); 
+        console.error(error);
+        alert("Hata oluştu! Lütfen sayfayı yenileyip tekrar dene."); 
     }
   };
 
@@ -176,18 +184,10 @@ export default function Dashboard() {
             <button onClick={()=>setActiveTab("animals")} className={`block w-full text-left p-3 rounded transition ${activeTab==='animals'?'bg-blue-50 text-blue-600':'hover:bg-gray-100'}`}>🐶 Hayvanlar</button>
             {user.role === 'manager' && <>
                 <button onClick={()=>setActiveTab("users")} className={`block w-full text-left p-3 rounded transition ${activeTab==='users'?'bg-purple-50 text-purple-600':'hover:bg-gray-100'}`}>👥 Kullanıcılar</button>
-                
-                {/* --- BURASI YENİ BİLDİRİM IŞIĞI KISMI --- */}
                 <button onClick={()=>setActiveTab("bildirimler")} className={`flex justify-between items-center w-full text-left p-3 rounded transition ${activeTab==='bildirimler'?'bg-orange-50 text-orange-600':'hover:bg-gray-100'}`}>
                     <span>🔔 İstekler</span>
-                    {bekleyenSayisi > 0 && (
-                        <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                            {bekleyenSayisi}
-                        </span>
-                    )}
+                    {bekleyenSayisi > 0 && <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">{bekleyenSayisi}</span>}
                 </button>
-                {/* ----------------------------------------- */}
-
             </>}
             {user.role === 'volunteer' && <button onClick={()=>setIsIhbarOpen(true)} className="w-full bg-orange-500 text-white p-2 rounded mt-4">Sokak Hayvanı Bildir</button>}
         </aside>
@@ -226,6 +226,24 @@ export default function Dashboard() {
             {activeTab === "users" && user.role === 'manager' && <div>
                 <h2 className="text-xl font-bold mb-4">Kullanıcılar</h2>
                 {kullanicilar.map(k => <div key={k.id} className="bg-white p-2 border-b">{k.fullName} - {k.role}</div>)}
+            </div>}
+            
+            {activeTab === "sahiplenenler" && user.role === 'manager' && <div>
+                <h2 className="text-xl font-bold mb-4">Sahiplenenler</h2>
+                {bildirimler.filter(b => b.tip === 'sahiplenme' && b.durum === 'Onaylandı').map(b => (
+                    <div key={b.id} className="bg-white p-4 mb-2 rounded shadow border-l-4 border-green-500">
+                        <span className="font-bold">{b.gonderenAd}</span>, {b.mesaj}
+                    </div>
+                ))}
+            </div>}
+
+            {activeTab === "basvurularim" && user.role === 'volunteer' && <div>
+                <h2 className="text-xl font-bold mb-4">Başvurularım</h2>
+                {bildirimler.filter(b => b.gonderenAd === user.fullName).map(b => (
+                    <div key={b.id} className="bg-white p-4 mb-2 rounded shadow">
+                        <span className={`font-bold ${b.durum==='Onaylandı'?'text-green-600':b.durum==='Reddedildi'?'text-red-600':'text-orange-500'}`}>{b.durum}</span> - {b.tip}: {b.mesaj}
+                    </div>
+                ))}
             </div>}
         </main>
       </div>

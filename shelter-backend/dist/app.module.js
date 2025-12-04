@@ -17,8 +17,8 @@ const users_module_1 = require("./users/users.module");
 const irk_module_1 = require("./irk/irk.module");
 const hayvan_module_1 = require("./hayvan/hayvan.module");
 const asi_module_1 = require("./asi/asi.module");
-const bildirim_module_1 = require("./bildirim/bildirim.module");
 const cip_module_1 = require("./cip/cip.module");
+const bildirim_module_1 = require("./bildirim/bildirim.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -26,25 +26,27 @@ exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
             serve_static_1.ServeStaticModule.forRoot({
-                rootPath: (0, path_1.join)(__dirname, '..', 'uploads'),
+                rootPath: (0, path_1.join)(process.cwd(), 'uploads'),
                 serveRoot: '/uploads',
             }),
             typeorm_1.TypeOrmModule.forRoot({
-                type: 'mysql',
-                host: '127.0.0.1',
-                port: 3306,
-                username: 'root',
-                password: '',
-                database: 'shelter_db',
+                type: process.env.DATABASE_URL ? 'postgres' : 'mysql',
+                url: process.env.DATABASE_URL,
+                host: process.env.DATABASE_URL ? undefined : '127.0.0.1',
+                port: process.env.DATABASE_URL ? undefined : 3306,
+                username: process.env.DATABASE_URL ? undefined : 'root',
+                password: process.env.DATABASE_URL ? undefined : '',
+                database: process.env.DATABASE_URL ? undefined : 'shelter_db',
                 autoLoadEntities: true,
                 synchronize: true,
+                ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
             }),
             users_module_1.UsersModule,
             irk_module_1.IrkModule,
             hayvan_module_1.HayvanModule,
             asi_module_1.AsiModule,
-            bildirim_module_1.BildirimModule,
             cip_module_1.CipModule,
+            bildirim_module_1.BildirimModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],
