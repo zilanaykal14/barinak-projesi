@@ -39,6 +39,9 @@ export default function Dashboard() {
     }
   }, []);
 
+  // --- BEKLEYEN BİLDİRİM SAYISINI HESAPLA ---
+  const bekleyenSayisi = bildirimler.filter(b => b.durum === 'Bekliyor').length;
+
   // --- KESİN URL DÜZELTİCİ ---
   const getImageUrl = (url) => {
     if (!url) return "https://placehold.co/100";
@@ -75,52 +78,46 @@ export default function Dashboard() {
   // --- GÜÇLENDİRİLMİŞ ONAY SİSTEMİ ---
   const handleBildirimGuncelle = async (bildirim, yeniDurum) => {
     try {
-      // 1. Hayvanın ID'sini güvenli şekilde al (Bazen 'hayvanId' bazen 'hayvan.id' olabilir)
       const hedefHayvanId = bildirim.hayvanId || (bildirim.hayvan && bildirim.hayvan.id);
 
-      if (!hedefHayvanId && bildirim.tip === 'sahiplenme') {
-        alert("Hata: Hayvan ID'si bulunamadı!");
-        return;
-      }
-
-      // 2. GÜVENLİK KONTROLÜ: Eğer onaylıyorsak, sunucudan hayvanın SON durumunu sor
+      // 1. ÖNCE HAYVANI KONTROL ET (Sunucudan Taze Bilgi Al)
       if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme') {
          const hayvanKontrol = await axios.get(`${API_URL}/hayvan/${hedefHayvanId}`);
          const guncelHayvan = hayvanKontrol.data;
 
+         // Eğer hayvan zaten sahiplendirildiyse DUR!
          if (guncelHayvan.durum === 'Sahiplendirildi') {
-            alert("⚠️ BU HAYVAN AZ ÖNCE BAŞKASINA VERİLDİ! İşlem iptal ediliyor.");
-            window.location.reload(); // Sayfayı yenile ki kullanıcı gerçeği görsün
+            alert("⚠️ BU İŞLEM YAPILAMAZ!\nBu hayvan az önce başkasına verildi.");
+            window.location.reload(); 
             return;
          }
       }
 
-      // 3. Engel yoksa işlemi yap
+      // 2. İşlemi Yap
       await axios.patch(`${API_URL}/bildirim/${bildirim.id}`, { durum: yeniDurum });
 
-      // 4. Eğer onay verildiyse diğer işlemleri yap
+      // 3. Onay verildiyse toplu temizlik yap
       if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme') {
         
-        // A. Hayvanı "Sahiplendirildi" yap
+        // Hayvanı kapat
         await axios.patch(`${API_URL}/hayvan/${hedefHayvanId}`, { durum: 'Sahiplendirildi' });
         
-        // B. Diğer bekleyenleri bul (Sayı/Metin fark etmeksizin eşleştir)
+        // Diğer bekleyenleri bul
         const digerleri = bildirimler.filter(b => {
             const bHayvanId = b.hayvanId || (b.hayvan && b.hayvan.id);
-            // ID'leri String'e çevirip karşılaştır (Kesin Eşleşme)
             return String(bHayvanId) === String(hedefHayvanId) && 
                    String(b.id) !== String(bildirim.id) && 
                    b.durum === 'Bekliyor';
         });
 
-        // C. Hepsini reddet
+        // Hepsini reddet
         for (const istek of digerleri) {
            await axios.patch(`${API_URL}/bildirim/${istek.id}`, { durum: 'Reddedildi' });
         }
 
-        alert("✅ İstek onaylandı! Hayvan sahiplendirildi ve diğer bekleyenler reddedildi.");
+        alert("✅ ONAYLANDI! Diğer bekleyen istekler otomatik reddedildi.");
         
-        // D. Sayfayı TAMAMEN yenile (Garanti olsun)
+        // EKRANI ZORLA YENİLE (Hata riskini sıfıra indirmek için)
         window.location.reload();
       } else {
         alert(`İşlem Başarılı: ${yeniDurum}`);
@@ -128,7 +125,7 @@ export default function Dashboard() {
       }
 
     } catch (error) { 
-        console.error("Hata detayı:", error);
+        console.error("Hata:", error);
         alert("Bir hata oluştu!"); 
     }
   };
@@ -176,10 +173,21 @@ export default function Dashboard() {
       </header>
       <div className="flex flex-1 overflow-hidden">
         <aside className="w-64 bg-white border-r p-4 space-y-2">
-            <button onClick={()=>setActiveTab("animals")} className="block w-full text-left p-2 hover:bg-gray-100 rounded">🐶 Hayvanlar</button>
+            <button onClick={()=>setActiveTab("animals")} className={`block w-full text-left p-3 rounded transition ${activeTab==='animals'?'bg-blue-50 text-blue-600':'hover:bg-gray-100'}`}>🐶 Hayvanlar</button>
             {user.role === 'manager' && <>
-                <button onClick={()=>setActiveTab("users")} className="block w-full text-left p-2 hover:bg-gray-100 rounded">👥 Kullanıcılar</button>
-                <button onClick={()=>setActiveTab("bildirimler")} className="block w-full text-left p-2 hover:bg-gray-100 rounded">🔔 İstekler</button>
+                <button onClick={()=>setActiveTab("users")} className={`block w-full text-left p-3 rounded transition ${activeTab==='users'?'bg-purple-50 text-purple-600':'hover:bg-gray-100'}`}>👥 Kullanıcılar</button>
+                
+                {/* --- BURASI YENİ BİLDİRİM IŞIĞI KISMI --- */}
+                <button onClick={()=>setActiveTab("bildirimler")} className={`flex justify-between items-center w-full text-left p-3 rounded transition ${activeTab==='bildirimler'?'bg-orange-50 text-orange-600':'hover:bg-gray-100'}`}>
+                    <span>🔔 İstekler</span>
+                    {bekleyenSayisi > 0 && (
+                        <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                            {bekleyenSayisi}
+                        </span>
+                    )}
+                </button>
+                {/* ----------------------------------------- */}
+
             </>}
             {user.role === 'volunteer' && <button onClick={()=>setIsIhbarOpen(true)} className="w-full bg-orange-500 text-white p-2 rounded mt-4">Sokak Hayvanı Bildir</button>}
         </aside>
@@ -202,13 +210,13 @@ export default function Dashboard() {
             </div>}
 
             {activeTab === "bildirimler" && user.role === 'manager' && <div>
-                <h2 className="text-xl font-bold mb-4">Gelen İstekler</h2>
+                <h2 className="text-xl font-bold mb-4">Gelen İstekler ({bekleyenSayisi})</h2>
                 {bildirimler.map(b => (
-                    <div key={b.id} className="bg-white p-4 mb-2 rounded shadow flex justify-between items-center">
+                    <div key={b.id} className={`p-4 mb-2 rounded shadow flex justify-between items-center ${b.durum==='Bekliyor'?'bg-orange-50 border border-orange-200':'bg-white'}`}>
                         <div><span className={`font-bold ${b.durum==='Bekliyor'?'text-orange-500':b.durum==='Onaylandı'?'text-green-600':'text-red-600'}`}>{b.durum}</span> - {b.tip} - {b.gonderenAd}: {b.mesaj}</div>
                         {b.durum === 'Bekliyor' && <div className="space-x-2">
-                            {b.tip === 'sahiplenme' && <button onClick={()=>handleBildirimGuncelle(b, 'Onaylandı')} className="bg-green-600 text-white px-3 py-1 rounded">Onayla</button>}
-                            <button onClick={()=>handleBildirimGuncelle(b, 'Reddedildi')} className="bg-red-500 text-white px-3 py-1 rounded">Reddet</button>
+                            {b.tip === 'sahiplenme' && <button onClick={()=>handleBildirimGuncelle(b, 'Onaylandı')} className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Onayla</button>}
+                            <button onClick={()=>handleBildirimGuncelle(b, 'Reddedildi')} className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600">Reddet</button>
                         </div>}
                         {b.durum !== 'Bekliyor' && <button onClick={()=>handleBildirimSil(b.id)} className="text-gray-400">Sil</button>}
                     </div>
