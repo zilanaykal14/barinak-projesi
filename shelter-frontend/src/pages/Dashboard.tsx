@@ -173,7 +173,25 @@ export default function Dashboard() {
                   <tbody className="divide-y divide-gray-100">
                     {hayvanlar.map((hayvan) => (
                       <tr key={hayvan.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4"><img src={hayvan.resimUrl || "https://placehold.co/100"} alt={hayvan.ad} className="w-10 h-10 rounded-full object-cover border border-gray-200" /></td>
+                        {/* --- DÜZELTİLEN RESİM KISMI --- */}
+                        <td className="px-6 py-4">
+                          <img 
+                            src={
+                              !hayvan.resimUrl 
+                                ? "https://placehold.co/100" 
+                                : hayvan.resimUrl.startsWith("http")
+                                    // Localhost linklerini canlı sunucu linkine çevir
+                                    ? hayvan.resimUrl.replace("http://127.0.0.1:3333", API_URL).replace("http://localhost:3333", API_URL)
+                                    // Link değilse (örn: /uploads/...) başına canlı sunucu adresini ekle
+                                    : `${API_URL}${hayvan.resimUrl}`
+                            } 
+                            alt={hayvan.ad} 
+                            className="w-10 h-10 rounded-full object-cover border border-gray-200" 
+                            // Resim yine de açılmazsa placeholder göster
+                            onError={(e) => { e.currentTarget.src = "https://placehold.co/100"; }}
+                          />
+                        </td>
+                        {/* ----------------------------- */}
                         <td className="px-6 py-4 font-bold text-gray-900">{hayvan.ad}</td>
                         <td className="px-6 py-4"><span className="bg-gray-100 px-2 py-1 rounded text-xs">{hayvan.irk ? hayvan.irk.ad : '-'}</span></td>
                         <td className="px-6 py-4 font-mono text-xs text-gray-500">{hayvan.cip ? hayvan.cip.numara : '-'}</td>
