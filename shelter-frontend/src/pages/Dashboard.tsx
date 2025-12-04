@@ -11,7 +11,7 @@ export default function Dashboard() {
   // CANLI BACKEND ADRESİ
   const API_URL = "https://barinak-projesi.onrender.com";
 
-  const [hayvanlar, setHayvanlar] = useState([]); 
+  const [hayvanlar, setHayvanlar] = useState([]);
   const [irklar, setIrklar] = useState([]);
   const [asilar, setAsilar] = useState([]);
   const [kullanicilar, setKullanicilar] = useState([]);
@@ -24,7 +24,14 @@ export default function Dashboard() {
 
   const [ihbarMesaj, setIhbarMesaj] = useState("");
   const [formData, setFormData] = useState({
-    ad: "", yas: "", cinsiyet: "Disi", durum: "Sahiplendirilebilir", resimUrl: "", irkId: "", cipNo: "", secilenAsilar: []
+    ad: "",
+    yas: "",
+    cinsiyet: "Disi",
+    durum: "Sahiplendirilebilir",
+    resimUrl: "",
+    irkId: "",
+    cipNo: "",
+    secilenAsilar: [],
   });
 
   useEffect(() => {
@@ -37,6 +44,38 @@ export default function Dashboard() {
       fetchData(parsedUser);
     }
   }, []);
+
+  // --- KESİN ÇÖZÜM: GELİŞMİŞ URL DÜZELTİCİ ---
+  const getImageUrl = (url) => {
+    if (!url) return "https://placehold.co/100";
+    
+    // URL'yi metne çevir ki hata olmasın
+    const strUrl = String(url);
+
+    // Eğer linkte "uploads" kelimesi geçiyorsa (localhost, 127.0.0.1 fark etmez)
+    // Hepsini sil ve temiz Render linkini yapıştır.
+    if (strUrl.includes("uploads")) {
+      const parcalar = strUrl.split("uploads");
+      const dosyaAdi = parcalar[parcalar.length - 1]; // Örn: /kedi.jpg
+      
+      // Ters slash (\) varsa düz slash (/) yap
+      const temizDosyaAdi = dosyaAdi.replace(/\\/g, "/");
+      
+      // Çift slash olmasın diye kontrol et
+      const yol = temizDosyaAdi.startsWith('/') ? temizDosyaAdi : '/' + temizDosyaAdi;
+      
+      return `${API_URL}/uploads${yol}`;
+    }
+
+    // Normal bir internet linkiyse (ve localhost değilse) olduğu gibi döndür
+    if (strUrl.startsWith("http") && !strUrl.includes("127.0.0.1") && !strUrl.includes("localhost")) {
+      return strUrl;
+    }
+
+    // Hiçbiri değilse başına API_URL ekle
+    return `${API_URL}${strUrl}`;
+  };
+  // ---------------------------------------------------
 
   const fetchData = async (currentUser) => {
     try {
@@ -59,37 +98,38 @@ export default function Dashboard() {
     }
   };
 
-  // --- GELİŞMİŞ URL DÜZELTİCİ ---
-  const getImageUrl = (url) => {
-    if (!url) return "https://placehold.co/100";
-    
-    // String olduğundan emin olalım
-    const strUrl = String(url);
-
-    // Eğer linkte "uploads" geçiyorsa, öncesindeki her şeyi (localhost vs) sil
-    if (strUrl.includes("uploads")) {
-      const parcalar = strUrl.split("uploads");
-      const dosyaAdi = parcalar[parcalar.length - 1]; // Örn: /kedi.jpg
-      // Ters slash varsa düzelt
-      const temizDosyaAdi = dosyaAdi.replace(/\\/g, "/");
-      // Temiz linki oluştur
-      return `${API_URL}/uploads${temizDosyaAdi.startsWith('/') ? '' : '/'}${temizDosyaAdi}`;
-    }
-
-    // Normal bir internet linkiyse ve localhost DEĞİLSE olduğu gibi döndür
-    if (strUrl.startsWith("http") && !strUrl.includes("127.0.0.1") && !strUrl.includes("localhost")) {
-      return strUrl;
-    }
-
-    // Hiçbiri değilse başına API_URL ekle
-    return `${API_URL}${strUrl}`;
-  };
-
   const handleIhbarGonder = async (e) => { e.preventDefault(); try { await axios.post(`${API_URL}/bildirim`, { tip: 'ihbar', mesaj: ihbarMesaj, gonderenAd: user.fullName, durum: 'Bekliyor' }); alert("İhbar iletildi!"); setIsIhbarOpen(false); setIhbarMesaj(""); fetchData(user); } catch (error) { alert("Hata!"); } };
   const handleSahiplenmeIstegi = async (hayvan) => { if (window.confirm(`${hayvan.ad} için istek gönderilsin mi?`)) { try { await axios.post(`${API_URL}/bildirim`, { tip: 'sahiplenme', mesaj: `${hayvan.ad} isimli hayvana talibim (ID: ${hayvan.id}).`, gonderenAd: user.fullName, hayvanId: hayvan.id, durum: 'Bekliyor' }); alert("İstek gönderildi!"); fetchData(user); } catch (error) { alert("Hata!"); } } };
   const handleBildirimGuncelle = async (bildirim, yeniDurum) => { try { await axios.patch(`${API_URL}/bildirim/${bildirim.id}`, { durum: yeniDurum }); if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme' && bildirim.hayvanId) { await axios.patch(`${API_URL}/hayvan/${bildirim.hayvanId}`, { durum: 'Sahiplendirildi' }); } alert(`İşlem: ${yeniDurum}`); fetchData(user); } catch (error) { alert("Hata oluştu."); } };
   const handleBildirimSil = async (id) => { if (window.confirm("Bildirimi silmek istiyor musunuz?")) { await axios.delete(`${API_URL}/bildirim/${id}`); fetchData(user); } };
-  const handleSave = async (e) => { e.preventDefault(); try { let finalResimUrl = formData.resimUrl; if (selectedFile) { const uploadData = new FormData(); uploadData.append('file', selectedFile); const uploadRes = await axios.post(`${API_URL}/upload`, uploadData, { headers: { 'Content-Type': 'multipart/form-data' } }); finalResimUrl = uploadRes.data.url; } const paket = { ad: formData.ad, yas: parseInt(formData.yas), cinsiyet: formData.cinsiyet, durum: formData.durum, resimUrl: finalResimUrl || "https://placehold.co/200", irk: { id: parseInt(formData.irkId) }, asilar: formData.secilenAsilar.map(id => ({ id: parseInt(id) })) }; if (formData.cipNo) { paket.cip = { numara: formData.cipNo }; } if (editingId) { await axios.patch(`${API_URL}/hayvan/${editingId}`, paket); alert("Güncellendi!"); } else { await axios.post(`${API_URL}/hayvan`, paket); alert("Eklendi!"); } setIsModalOpen(false); fetchData(user); resetForm(); } catch (error) { alert("Hata!"); } };
+  
+  const handleSave = async (e) => { 
+    e.preventDefault(); 
+    try { 
+      let finalResimUrl = formData.resimUrl; 
+      if (selectedFile) { 
+        const uploadData = new FormData(); 
+        uploadData.append('file', selectedFile); 
+        const uploadRes = await axios.post(`${API_URL}/upload`, uploadData, { headers: { 'Content-Type': 'multipart/form-data' } }); 
+        finalResimUrl = uploadRes.data.url; 
+      } 
+      const paket = { 
+        ad: formData.ad, 
+        yas: parseInt(formData.yas), 
+        cinsiyet: formData.cinsiyet, 
+        durum: formData.durum, 
+        resimUrl: finalResimUrl || "https://placehold.co/200", 
+        irk: { id: parseInt(formData.irkId) }, 
+        asilar: formData.secilenAsilar.map(id => ({ id: parseInt(id) })) 
+      }; 
+      if (formData.cipNo) { paket.cip = { numara: formData.cipNo }; } 
+      
+      if (editingId) { await axios.patch(`${API_URL}/hayvan/${editingId}`, paket); alert("Güncellendi!"); } 
+      else { await axios.post(`${API_URL}/hayvan`, paket); alert("Eklendi!"); } 
+      setIsModalOpen(false); fetchData(user); resetForm(); 
+    } catch (error) { alert("Hata!"); } 
+  };
+  
   const handleEdit = (hayvan) => { setEditingId(hayvan.id); const mevcutAsiIdleri = hayvan.asilar ? hayvan.asilar.map((a) => a.id.toString()) : []; setFormData({ ad: hayvan.ad, yas: hayvan.yas, cinsiyet: hayvan.cinsiyet, durum: hayvan.durum, resimUrl: hayvan.resimUrl || "", irkId: hayvan.irk ? hayvan.irk.id : "", secilenAsilar: mevcutAsiIdleri, cipNo: hayvan.cip ? hayvan.cip.numara : "" }); setSelectedFile(null); setIsModalOpen(true); };
   const handleDelete = async (id) => { if (window.confirm("Silinsin mi?")) { await axios.delete(`${API_URL}/hayvan/${id}`); setHayvanlar(hayvanlar.filter((h) => h.id !== id)); } };
   const handleAddIrk = async () => { const ad = window.prompt("Irk adı:"); if(ad) { await axios.post(`${API_URL}/irk`, { ad }); const r = await axios.get(`${API_URL}/irk`); setIrklar(r.data); } };
@@ -136,7 +176,8 @@ export default function Dashboard() {
                   <tbody className="divide-y divide-gray-100">
                     {hayvanlar.map((hayvan) => (
                       <tr key={hayvan.id} className="hover:bg-gray-50">
-                        {/* --- RESİM DÜZELTME KODU --- */}
+                        
+                        {/* --- SİHİRLİ DOKUNUŞ BURADA --- */}
                         <td className="px-6 py-4">
                           <img 
                             src={getImageUrl(hayvan.resimUrl)} 
@@ -145,7 +186,8 @@ export default function Dashboard() {
                             onError={(e) => { e.currentTarget.src = "https://placehold.co/100"; }}
                           />
                         </td>
-                        {/* --------------------------- */}
+                        {/* ----------------------------- */}
+
                         <td className="px-6 py-4 font-bold text-gray-900">{hayvan.ad}</td>
                         <td className="px-6 py-4"><span className="bg-gray-100 px-2 py-1 rounded text-xs">{hayvan.irk ? hayvan.irk.ad : '-'}</span></td>
                         <td className="px-6 py-4 font-mono text-xs text-gray-500">{hayvan.cip ? hayvan.cip.numara : '-'}</td>
@@ -163,10 +205,50 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-          {/* Diğer tablar aynı... */}
+          {activeTab === "users" && user.role === 'manager' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-6 border-b border-gray-100"><h2 className="text-lg font-bold text-gray-800">Kullanıcılar</h2></div>
+              <table className="w-full text-left text-sm text-gray-600">
+                <thead className="bg-purple-50 text-xs uppercase text-purple-700"><tr><th className="px-6 py-4">Ad Soyad</th><th className="px-6 py-4">Email</th><th className="px-6 py-4">Rol</th></tr></thead>
+                <tbody className="divide-y divide-gray-100">{kullanicilar.map((k) => (<tr key={k.id}><td className="px-6 py-4 font-bold">{k.fullName}</td><td className="px-6 py-4">{k.email}</td><td className="px-6 py-4"><span className="px-2 py-1 bg-gray-100 rounded text-xs uppercase">{k.role}</span></td></tr>))}</tbody>
+              </table>
+            </div>
+          )}
+          {activeTab === "bildirimler" && user.role === 'manager' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-6 border-b border-gray-100"><h2 className="text-lg font-bold text-gray-800">Gelen İstekler 🔔</h2></div>
+              <table className="w-full text-left text-sm text-gray-600">
+                <thead className="bg-orange-50 text-xs uppercase text-orange-700"><tr><th className="px-6 py-4">Durum</th><th className="px-6 py-4">Tür</th><th className="px-6 py-4">Gönderen</th><th className="px-6 py-4">Mesaj</th><th className="px-6 py-4 text-right">İşlem</th></tr></thead>
+                <tbody className="divide-y divide-gray-100">
+                  {bildirimler.map((b) => (
+                    <tr key={b.id} className={b.durum === 'Bekliyor' ? 'bg-orange-50' : 'bg-white'}>
+                      <td className="px-6 py-4"><span className={`px-2 py-1 rounded text-xs font-bold uppercase ${b.durum === 'Onaylandı' ? 'bg-green-100 text-green-700' : b.durum === 'Reddedildi' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{b.durum}</span></td>
+                      <td className="px-6 py-4 font-bold text-xs uppercase text-gray-500">{b.tip}</td>
+                      <td className="px-6 py-4 font-medium">{b.gonderenAd}</td>
+                      <td className="px-6 py-4">{b.mesaj}</td>
+                      <td className="px-6 py-4 text-right space-x-2">
+                        {b.durum === 'Bekliyor' && (
+                          <>{b.tip === 'sahiplenme' && <button onClick={() => handleBildirimGuncelle(b, 'Onaylandı')} className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700">Onayla</button>}
+                          {b.tip === 'ihbar' && <button onClick={() => handleBildirimGuncelle(b, 'Okundu')} className="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700">Okundu</button>}
+                          <button onClick={() => handleBildirimGuncelle(b, 'Reddedildi')} className="bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600">Reddet</button></>
+                        )}
+                        <button onClick={() => handleBildirimSil(b.id)} className="bg-gray-200 text-gray-600 px-3 py-1 rounded text-xs hover:bg-gray-300">Sil</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {activeTab === "sahiplenenler" && user.role === 'manager' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"><div className="p-6 border-b border-gray-100"><h2 className="text-lg font-bold text-gray-800">Sahiplenenler 🏠</h2></div><table className="w-full text-left text-sm text-gray-600"><thead className="bg-green-50 text-xs uppercase text-green-700"><tr><th className="px-6 py-4">Sahiplenen Kişi</th><th className="px-6 py-4">Mesaj / Detay</th><th className="px-6 py-4">Durum</th></tr></thead><tbody className="divide-y divide-gray-100">{bildirimler.filter(b => b.tip === 'sahiplenme' && b.durum === 'Onaylandı').map((b) => (<tr key={b.id}><td className="px-6 py-4 font-bold text-gray-800">{b.gonderenAd}</td><td className="px-6 py-4">{b.mesaj}</td><td className="px-6 py-4"><span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold uppercase">Sahiplendi</span></td></tr>))}</tbody></table></div>
+          )}
+          {activeTab === "basvurularim" && user.role === 'volunteer' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"><div className="p-6 border-b border-gray-100"><h2 className="text-lg font-bold text-gray-800">Başvurularım 📝</h2></div><table className="w-full text-left text-sm text-gray-600"><thead className="bg-blue-50 text-xs uppercase text-blue-700"><tr><th className="px-6 py-4">Tür</th><th className="px-6 py-4">Mesaj</th><th className="px-6 py-4">Yönetici Cevabı</th></tr></thead><tbody className="divide-y divide-gray-100">{bildirimler.filter(b => b.gonderenAd === user.fullName).map((b) => (<tr key={b.id}><td className="px-6 py-4 uppercase text-xs font-bold text-gray-500">{b.tip}</td><td className="px-6 py-4">{b.mesaj}</td><td className="px-6 py-4"><span className={`px-2 py-1 rounded text-xs font-bold uppercase ${b.durum === 'Onaylandı' ? 'bg-green-100 text-green-700' : b.durum === 'Reddedildi' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{b.durum}</span></td></tr>))}</tbody></table></div>
+          )}
         </main>
       </div>
-      {/* Modallar aynı... */}
+      {/* Modallar */}
       {isIhbarOpen && (<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"><div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6"><h3 className="font-bold text-lg mb-4 text-gray-800">Sokak Hayvanı Bildir 📢</h3><textarea className="w-full border rounded-lg p-3 text-sm" rows={4} placeholder="Detaylar..." value={ihbarMesaj} onChange={(e) => setIhbarMesaj(e.target.value)}></textarea><div className="flex justify-end space-x-2 mt-4"><button onClick={() => setIsIhbarOpen(false)} className="text-gray-500">İptal</button><button onClick={handleIhbarGonder} className="bg-orange-500 text-white px-4 py-2 rounded">Gönder</button></div></div></div>)}
       {isModalOpen && (<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"><div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden max-h-[90vh] overflow-y-auto"><div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50"><h3 className="font-bold text-gray-800">{editingId ? 'Düzenle' : 'Yeni Ekle'}</h3><button onClick={() => setIsModalOpen(false)}>✕</button></div><form onSubmit={handleSave} className="p-6 space-y-4"><input type="text" placeholder="Ad" required className="w-full border rounded px-3 py-2" value={formData.ad} onChange={e => setFormData({...formData, ad: e.target.value})} /><input type="file" accept="image/*" className="w-full border rounded px-3 py-2 text-sm" onChange={(e) => { if(e.target.files?.[0]) setSelectedFile(e.target.files[0]) }} /><div><div className="flex justify-between mb-1"><label className="text-sm">Irk</label><button type="button" onClick={handleAddIrk} className="text-xs text-blue-600">+ Yeni Irk</button></div><select required className="w-full border rounded px-3 py-2 bg-white" value={formData.irkId} onChange={e => setFormData({...formData, irkId: e.target.value})}><option value="">Seçiniz...</option>{irklar.map(irk => <option key={irk.id} value={irk.id}>{irk.ad}</option>)}</select></div><div><label className="text-sm">Mikroçip No (Varsa)</label><input type="text" placeholder="TR-..." className="w-full border rounded px-3 py-2" value={formData.cipNo} onChange={e => setFormData({...formData, cipNo: e.target.value})} /></div><div className="grid grid-cols-2 gap-2 bg-gray-50 p-2 rounded border">{asilar.map(asi => (<label key={asi.id} className="flex items-center space-x-2"><input type="checkbox" checked={formData.secilenAsilar.includes(asi.id.toString())} onChange={() => handleCheckboxChange(asi.id.toString())} /><span className="text-sm">{asi.ad}</span></label>))}</div><div className="grid grid-cols-2 gap-4"><input type="number" placeholder="Yaş" required className="w-full border rounded px-3 py-2" value={formData.yas} onChange={e => setFormData({...formData, yas: e.target.value})} /><select className="w-full border rounded px-3 py-2 bg-white" value={formData.cinsiyet} onChange={e => setFormData({...formData, cinsiyet: e.target.value})}><option value="Disi">Dişi</option><option value="Erkek">Erkek</option></select></div><select className="w-full border rounded px-3 py-2 bg-white" value={formData.durum} onChange={e => setFormData({...formData, durum: e.target.value})}><option value="Sahiplendirilebilir">Sahiplendirilebilir</option><option value="Tedavide">Tedavide</option><option value="Sahiplendirildi">Sahiplendirildi</option></select><button type="submit" className="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">{editingId ? 'Güncelle' : 'Kaydet'}</button></form></div></div>)}
     </div>
