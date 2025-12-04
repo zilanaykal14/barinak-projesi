@@ -1,3 +1,4 @@
+
 // @ts-nocheck
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -38,23 +39,17 @@ export default function Dashboard() {
     }
   }, []);
 
-  // --- GELİŞMİŞ URL DÜZELTİCİ (Resimler için) ---
+  // --- KESİN URL DÜZELTİCİ ---
   const getImageUrl = (url) => {
     if (!url) return "https://placehold.co/100";
     const strUrl = String(url);
-
-    // Eğer localhost, 127.0.0.1 veya uploads geçiyorsa TEMİZLE
     if (strUrl.includes("uploads") || strUrl.includes("127.0.0.1") || strUrl.includes("localhost")) {
       const parcalar = strUrl.split("uploads");
       const dosyaAdi = parcalar[parcalar.length - 1].replace(/\\/g, "/");
       const temizYol = dosyaAdi.startsWith('/') ? dosyaAdi : '/' + dosyaAdi;
       return `${API_URL}/uploads${temizYol}`;
     }
-    
-    // Normal link ise döndür
     if (strUrl.startsWith("http")) return strUrl;
-    
-    // Hiçbiri değilse başına API URL koy
     return `${API_URL}${strUrl}`;
   };
 
@@ -77,55 +72,64 @@ export default function Dashboard() {
     } catch (error) { console.error(error); }
   };
 
-  // --- AKILLI VE GÜVENLİ ONAY SİSTEMİ ---
+  // --- GÜÇLENDİRİLMİŞ ONAY SİSTEMİ ---
   const handleBildirimGuncelle = async (bildirim, yeniDurum) => {
     try {
-      // 1. GÜVENLİK KONTROLÜ: Eğer onaylıyorsak, hayvan HALA boş mu diye bak!
-      if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme' && bildirim.hayvanId) {
-         // Hayvanın güncel bilgisini sunucudan çek
-         const hayvanKontrol = await axios.get(`${API_URL}/hayvan/${bildirim.hayvanId}`);
+      // 1. Hayvanın ID'sini güvenli şekilde al (Bazen 'hayvanId' bazen 'hayvan.id' olabilir)
+      const hedefHayvanId = bildirim.hayvanId || (bildirim.hayvan && bildirim.hayvan.id);
+
+      if (!hedefHayvanId && bildirim.tip === 'sahiplenme') {
+        alert("Hata: Hayvan ID'si bulunamadı!");
+        return;
+      }
+
+      // 2. GÜVENLİK KONTROLÜ: Eğer onaylıyorsak, sunucudan hayvanın SON durumunu sor
+      if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme') {
+         const hayvanKontrol = await axios.get(`${API_URL}/hayvan/${hedefHayvanId}`);
          const guncelHayvan = hayvanKontrol.data;
 
-         // Eğer hayvan zaten "Sahiplendirildi" ise işlemi DURDUR
          if (guncelHayvan.durum === 'Sahiplendirildi') {
-            alert("⚠️ HATA: Bu hayvan az önce başkası tarafından sahiplendirildi! İşlem yapılamaz.");
-            fetchData(user); // Listeyi yenile ki gerçeği görsün
-            return; // Fonksiyonu burada bitir
+            alert("⚠️ BU HAYVAN AZ ÖNCE BAŞKASINA VERİLDİ! İşlem iptal ediliyor.");
+            window.location.reload(); // Sayfayı yenile ki kullanıcı gerçeği görsün
+            return;
          }
       }
 
-      // 2. Engel yoksa işleme devam et
+      // 3. Engel yoksa işlemi yap
       await axios.patch(`${API_URL}/bildirim/${bildirim.id}`, { durum: yeniDurum });
 
-      // 3. Eğer onay verildiyse diğer işlemleri yap
-      if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme' && bildirim.hayvanId) {
+      // 4. Eğer onay verildiyse diğer işlemleri yap
+      if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme') {
         
-        // Hayvanı "Sahiplendirildi" yap
-        await axios.patch(`${API_URL}/hayvan/${bildirim.hayvanId}`, { durum: 'Sahiplendirildi' });
+        // A. Hayvanı "Sahiplendirildi" yap
+        await axios.patch(`${API_URL}/hayvan/${hedefHayvanId}`, { durum: 'Sahiplendirildi' });
         
-        // Diğer bekleyenleri bul ve reddet
-        // Not: Burada sunucudan taze veri çekip filtrelemek daha güvenlidir ama şimdilik eldeki listeden yapıyoruz
-        const digerleri = bildirimler.filter(b => 
-            b.hayvanId === bildirim.hayvanId && 
-            b.id !== bildirim.id && 
-            b.durum === 'Bekliyor'
-        );
+        // B. Diğer bekleyenleri bul (Sayı/Metin fark etmeksizin eşleştir)
+        const digerleri = bildirimler.filter(b => {
+            const bHayvanId = b.hayvanId || (b.hayvan && b.hayvan.id);
+            // ID'leri String'e çevirip karşılaştır (Kesin Eşleşme)
+            return String(bHayvanId) === String(hedefHayvanId) && 
+                   String(b.id) !== String(bildirim.id) && 
+                   b.durum === 'Bekliyor';
+        });
 
+        // C. Hepsini reddet
         for (const istek of digerleri) {
            await axios.patch(`${API_URL}/bildirim/${istek.id}`, { durum: 'Reddedildi' });
         }
 
-        alert("✅ İstek onaylandı! Hayvan sahiplendirildi ve sıradaki diğer istekler reddedildi.");
+        alert("✅ İstek onaylandı! Hayvan sahiplendirildi ve diğer bekleyenler reddedildi.");
+        
+        // D. Sayfayı TAMAMEN yenile (Garanti olsun)
+        window.location.reload();
       } else {
         alert(`İşlem Başarılı: ${yeniDurum}`);
+        fetchData(user);
       }
 
-      // Her şey bitince sayfayı yenile
-      fetchData(user);
     } catch (error) { 
         console.error("Hata detayı:", error);
-        alert("Bir hata oluştu! (Hayvan silinmiş veya sunucu hatası olabilir)"); 
-        fetchData(user);
+        alert("Bir hata oluştu!"); 
     }
   };
 
