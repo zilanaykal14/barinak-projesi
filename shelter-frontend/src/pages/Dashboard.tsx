@@ -1,33 +1,41 @@
 // @ts-nocheck
+// React kütüphanesinden gerekli özellikleri alıyoruz.
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 export default function Dashboard() {
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState("animals");
+  const navigate = useNavigate(); // Sayfa yönlendirmesi için.
+  
+  // --- STATE (DEĞİŞKENLER) ---
+  const [user, setUser] = useState(null); 
+  const [activeTab, setActiveTab] = useState("animals"); 
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // CANLI BACKEND ADRESİ
+  // --- CANLI BACKEND ADRESİ ---
+  // Burası çok önemli. Sonunda '/' olmamasına dikkat ettim.
   const API_URL = "https://barinak-projesi.onrender.com";
 
+  // Veri listeleri
   const [hayvanlar, setHayvanlar] = useState([]); 
   const [irklar, setIrklar] = useState([]);
   const [asilar, setAsilar] = useState([]);
   const [kullanicilar, setKullanicilar] = useState([]);
   const [bildirimler, setBildirimler] = useState([]);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isIhbarOpen, setIsIhbarOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
+  // Modallar (Pencereler)
+  const [isModalOpen, setIsModalOpen] = useState(false); 
+  const [isIhbarOpen, setIsIhbarOpen] = useState(false); 
+  
+  // Form verileri
+  const [editingId, setEditingId] = useState(null); 
   const [selectedFile, setSelectedFile] = useState(null);
-
   const [ihbarMesaj, setIhbarMesaj] = useState("");
   const [formData, setFormData] = useState({
     ad: "", yas: "", cinsiyet: "Disi", durum: "Sahiplendirilebilir", resimUrl: "", irkId: "", cipNo: "", secilenAsilar: []
   });
 
+  // Sayfa açılınca çalışır
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (!storedUser) {
@@ -41,15 +49,20 @@ export default function Dashboard() {
 
   const bekleyenSayisi = bildirimler.filter(b => b.durum === 'Bekliyor').length;
 
+  // Verileri veritabanından çeker
   const fetchData = async (currentUser) => {
     try {
       const config = { headers: { "Cache-Control": "no-cache" } };
+      
       const resHayvan = await axios.get(`${API_URL}/hayvan`, config);
       setHayvanlar(resHayvan.data);
+      
       const resIrk = await axios.get(`${API_URL}/irk`);
       setIrklar(resIrk.data);
+      
       const resAsi = await axios.get(`${API_URL}/asi`);
       setAsilar(resAsi.data);
+      
       const resBildirim = await axios.get(`${API_URL}/bildirim`, config);
       setBildirimler(resBildirim.data);
 
@@ -63,27 +76,33 @@ export default function Dashboard() {
     }
   };
 
-  // --- DÜZELTİLMİŞ RESİM GÖSTERİCİ (Sorunun Çözümü Burada) ---
+  // --- RESİM URL DÜZELTİCİ (GÜNCELLENDİ VE GÜÇLENDİRİLDİ) ---
   const getImageUrl = (url) => {
-    if (!url) return "https://placehold.co/100";
+    // 1. Eğer url yoksa veya boşsa gri kutu göster
+    if (!url || url === "") return "https://placehold.co/100";
     
-    const strUrl = String(url).trim();
+    // 2. String'e çevir ve kenar boşluklarını temizle (trim)
+    let temizUrl = String(url).trim();
 
-    // 1. Eğer link zaten tam bir internet adresiyse (http/https ile başlıyorsa) dokunma, olduğu gibi döndür.
-    if (strUrl.startsWith("http") || strUrl.startsWith("https")) {
-        return strUrl;
+    // 3. Eğer tam link ise (https://...) olduğu gibi döndür
+    if (temizUrl.startsWith("http://") || temizUrl.startsWith("https://")) {
+        return temizUrl;
     }
 
-    // 2. Eğer localhost linki ise düzelt
-    if (strUrl.includes("localhost") || strUrl.includes("127.0.0.1")) {
-         // Localhost linkini backend url'e çevir
-         return strUrl.replace(/http:\/\/localhost:\d+/, API_URL).replace(/http:\/\/127.0.0.1:\d+/, API_URL);
+    // 4. Eğer localhost kalıntısı varsa düzelt
+    if (temizUrl.includes("localhost") || temizUrl.includes("127.0.0.1")) {
+         // Hatalı kısmı silip yerine canlı adresi koy
+         return temizUrl.replace(/http:\/\/localhost:\d+/, API_URL).replace(/http:\/\/127.0.0.1:\d+/, API_URL);
     }
 
-    // 3. Eğer sadece dosya yoluysa (örn: "uploads/resim.jpg") başına backend adresini ekle
-    // Başında "/" varsa temizle ki çift slash olmasın
-    const cleanPath = strUrl.startsWith('/') ? strUrl.slice(1) : strUrl;
-    return `${API_URL}/${cleanPath}`;
+    // 5. Eğer sadece dosya yoluysa (örn: uploads/resim.jpg)
+    // Başında '/' varsa kaldır, çünkü biz aşağıda ekleyeceğiz.
+    if (temizUrl.startsWith("/")) {
+        temizUrl = temizUrl.substring(1);
+    }
+
+    // API_URL + / + dosyaYolu şeklinde birleştir
+    return `${API_URL}/${temizUrl}`;
   };
 
   // --- İŞLEMLER ---
@@ -127,9 +146,10 @@ export default function Dashboard() {
     if(isProcessing)return; 
     setIsProcessing(true); 
     try { 
-      let finalResimUrl = formData.resimUrl; 
+      // Varsayılan olarak formdaki yazılı linki al
+      let finalResimUrl = formData.resimUrl ? formData.resimUrl.trim() : "";
       
-      // Eğer dosya seçildiyse yükle
+      // Eğer dosya seçildiyse yükle ve linki değiştir
       if (selectedFile) { 
         const uploadData = new FormData(); 
         uploadData.append('file', selectedFile); 
@@ -137,13 +157,17 @@ export default function Dashboard() {
         finalResimUrl = uploadRes.data.url; 
       } 
       
+      // Eğer hiç resim yoksa placeholder koy
+      if (!finalResimUrl) {
+          finalResimUrl = "https://placehold.co/200";
+      }
+
       const paket = { 
         ad: formData.ad, 
         yas: parseInt(formData.yas), 
         cinsiyet: formData.cinsiyet, 
         durum: formData.durum, 
-        // Eğer hiçbir şey girilmediyse placeholder koy
-        resimUrl: finalResimUrl || "https://placehold.co/200", 
+        resimUrl: finalResimUrl, // Temizlenmiş linki gönder
         irk: { id: parseInt(formData.irkId) }, 
         asilar: formData.secilenAsilar.map(id => ({ id: parseInt(id) })) 
       }; 
@@ -152,7 +176,9 @@ export default function Dashboard() {
       if (editingId) { await axios.patch(`${API_URL}/hayvan/${editingId}`, paket); alert("Güncellendi!"); } 
       else { await axios.post(`${API_URL}/hayvan`, paket); alert("Eklendi!"); } 
       
-      setIsModalOpen(false); fetchData(user); resetForm(); 
+      setIsModalOpen(false); 
+      fetchData(user); 
+      resetForm(); 
     } catch (error) { 
       console.error(error);
       alert("Hata! İşlem tamamlanamadı."); 
@@ -189,7 +215,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* HEADER */}
       <header className="bg-white shadow-sm border-b border-gray-200 px-8 py-4 flex justify-between items-center">
         <div className="flex items-center space-x-3">
             <div className="bg-blue-600 text-white p-2 rounded-lg font-bold text-xl">🐾</div>
@@ -203,7 +228,6 @@ export default function Dashboard() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* SIDEBAR */}
         <aside className="w-64 bg-white border-r border-gray-200 p-6 flex flex-col space-y-2">
           <button onClick={() => setActiveTab("animals")} className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === "animals" ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-50"}`}><span>🐶</span><span>Hayvan Listesi</span></button>
           
@@ -226,8 +250,8 @@ export default function Dashboard() {
           )}
         </aside>
 
-        {/* MAIN CONTENT */}
         <main className={`flex-1 p-8 overflow-y-auto ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}>
+          
           {activeTab === "animals" && (
             <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -244,7 +268,16 @@ export default function Dashboard() {
                     {hayvanlar.map((hayvan) => (
                       <tr key={hayvan.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
-                            <img src={getImageUrl(hayvan.resimUrl)} alt={hayvan.ad} className="w-10 h-10 rounded-full object-cover border border-gray-200" onError={(e) => { e.currentTarget.src = "https://placehold.co/100"; }} />
+                            {/* DÜZELTİLDİ: Resim yüklenemezse konsola hatayı yazar ve placeholder gösterir */}
+                            <img 
+                                src={getImageUrl(hayvan.resimUrl)} 
+                                alt={hayvan.ad} 
+                                className="w-10 h-10 rounded-full object-cover border border-gray-200" 
+                                onError={(e) => { 
+                                    console.log("Resim hatası:", hayvan.resimUrl);
+                                    e.currentTarget.src = "https://placehold.co/100"; 
+                                }} 
+                            />
                         </td>
                         <td className="px-6 py-4 font-bold text-gray-900">{hayvan.ad}</td>
                         <td className="px-6 py-4"><span className="bg-gray-100 px-2 py-1 rounded text-xs">{hayvan.irk ? hayvan.irk.ad : '-'}</span></td>
@@ -308,9 +341,11 @@ export default function Dashboard() {
               </table>
             </div>
           )}
+          
           {activeTab === "sahiplenenler" && user.role === 'manager' && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"><div className="p-6 border-b border-gray-100"><h2 className="text-lg font-bold text-gray-800">Sahiplenenler 🏠</h2></div><table className="w-full text-left text-sm text-gray-600"><thead className="bg-green-50 text-xs uppercase text-green-700"><tr><th className="px-6 py-4">Sahiplenen Kişi</th><th className="px-6 py-4">Mesaj / Detay</th><th className="px-6 py-4">Durum</th></tr></thead><tbody className="divide-y divide-gray-100">{bildirimler.filter(b => b.tip === 'sahiplenme' && b.durum === 'Onaylandı').map((b) => (<tr key={b.id}><td className="px-6 py-4 font-bold text-gray-800">{b.gonderenAd}</td><td className="px-6 py-4">{b.mesaj}</td><td className="px-6 py-4"><span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold uppercase">Sahiplendi</span></td></tr>))}</tbody></table></div>
           )}
+          
           {activeTab === "users" && user.role === 'manager' && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="p-6 border-b border-gray-100"><h2 className="text-lg font-bold text-gray-800">Kullanıcılar</h2></div>
@@ -323,10 +358,8 @@ export default function Dashboard() {
         </main>
       </div>
 
-      {/* MODALLAR */}
       {isIhbarOpen && (<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"><div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6"><h3 className="font-bold text-lg mb-4 text-gray-800">Sokak Hayvanı Bildir 📢</h3><textarea className="w-full border rounded-lg p-3 text-sm" rows={4} placeholder="Detaylar..." value={ihbarMesaj} onChange={(e) => setIhbarMesaj(e.target.value)} disabled={isProcessing}></textarea><div className="flex justify-end space-x-2 mt-4"><button onClick={() => setIsIhbarOpen(false)} className="text-gray-500" disabled={isProcessing}>İptal</button><button onClick={handleIhbarGonder} className="bg-orange-500 text-white px-4 py-2 rounded" disabled={isProcessing}>Gönder</button></div></div></div>)}
       
-      {/* HAYVAN EKLEME/DÜZENLEME MODALI */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-8 relative">
