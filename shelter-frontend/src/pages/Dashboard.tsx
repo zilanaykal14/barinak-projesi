@@ -1,41 +1,34 @@
+
 // @ts-nocheck
-// React kütüphanesinden gerekli özellikleri alıyoruz.
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 export default function Dashboard() {
-  const navigate = useNavigate(); // Sayfa yönlendirmesi için.
-  
-  // --- STATE (DEĞİŞKENLER) ---
-  const [user, setUser] = useState(null); 
-  const [activeTab, setActiveTab] = useState("animals"); 
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [activeTab, setActiveTab] = useState("animals");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // --- CANLI BACKEND ADRESİ ---
-  // Burası çok önemli. Sonunda '/' olmamasına dikkat ettim.
+  // CANLI BACKEND ADRESİ
   const API_URL = "https://barinak-projesi.onrender.com";
 
-  // Veri listeleri
   const [hayvanlar, setHayvanlar] = useState([]); 
   const [irklar, setIrklar] = useState([]);
   const [asilar, setAsilar] = useState([]);
   const [kullanicilar, setKullanicilar] = useState([]);
   const [bildirimler, setBildirimler] = useState([]);
 
-  // Modallar (Pencereler)
-  const [isModalOpen, setIsModalOpen] = useState(false); 
-  const [isIhbarOpen, setIsIhbarOpen] = useState(false); 
-  
-  // Form verileri
-  const [editingId, setEditingId] = useState(null); 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isIhbarOpen, setIsIhbarOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
+
   const [ihbarMesaj, setIhbarMesaj] = useState("");
   const [formData, setFormData] = useState({
     ad: "", yas: "", cinsiyet: "Disi", durum: "Sahiplendirilebilir", resimUrl: "", irkId: "", cipNo: "", secilenAsilar: []
   });
 
-  // Sayfa açılınca çalışır
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (!storedUser) {
@@ -49,20 +42,15 @@ export default function Dashboard() {
 
   const bekleyenSayisi = bildirimler.filter(b => b.durum === 'Bekliyor').length;
 
-  // Verileri veritabanından çeker
   const fetchData = async (currentUser) => {
     try {
       const config = { headers: { "Cache-Control": "no-cache" } };
-      
       const resHayvan = await axios.get(`${API_URL}/hayvan`, config);
       setHayvanlar(resHayvan.data);
-      
       const resIrk = await axios.get(`${API_URL}/irk`);
       setIrklar(resIrk.data);
-      
       const resAsi = await axios.get(`${API_URL}/asi`);
       setAsilar(resAsi.data);
-      
       const resBildirim = await axios.get(`${API_URL}/bildirim`, config);
       setBildirimler(resBildirim.data);
 
@@ -76,32 +64,33 @@ export default function Dashboard() {
     }
   };
 
-  // --- RESİM URL DÜZELTİCİ (GÜNCELLENDİ VE GÜÇLENDİRİLDİ) ---
+  // --- EN SAĞLAM RESİM URL DÜZELTİCİ ---
   const getImageUrl = (url) => {
-    // 1. Eğer url yoksa veya boşsa gri kutu göster
-    if (!url || url === "") return "https://placehold.co/100";
+    // 1. URL yoksa gri kutu
+    if (!url || url === "" || url === "undefined" || url === "null") return "https://placehold.co/100";
     
-    // 2. String'e çevir ve kenar boşluklarını temizle (trim)
+    // 2. String'e çevir ve boşlukları sil
     let temizUrl = String(url).trim();
 
-    // 3. Eğer tam link ise (https://...) olduğu gibi döndür
+    // 3. WINDOWS SLASH (\) SORUNUNU DÜZELT (Ters slashları düze çevir)
+    temizUrl = temizUrl.replace(/\\/g, "/");
+
+    // 4. Eğer gerçek bir internet linkiyse (http/https) dokunma, döndür.
     if (temizUrl.startsWith("http://") || temizUrl.startsWith("https://")) {
         return temizUrl;
     }
 
-    // 4. Eğer localhost kalıntısı varsa düzelt
+    // 5. Eğer localhost kalıntısı varsa temizle ve canlı adresi koy
     if (temizUrl.includes("localhost") || temizUrl.includes("127.0.0.1")) {
-         // Hatalı kısmı silip yerine canlı adresi koy
          return temizUrl.replace(/http:\/\/localhost:\d+/, API_URL).replace(/http:\/\/127.0.0.1:\d+/, API_URL);
     }
 
-    // 5. Eğer sadece dosya yoluysa (örn: uploads/resim.jpg)
-    // Başında '/' varsa kaldır, çünkü biz aşağıda ekleyeceğiz.
+    // 6. Eğer başında / varsa kaldır (çift slash olmasın diye)
     if (temizUrl.startsWith("/")) {
         temizUrl = temizUrl.substring(1);
     }
 
-    // API_URL + / + dosyaYolu şeklinde birleştir
+    // 7. Backend adresiyle birleştir
     return `${API_URL}/${temizUrl}`;
   };
 
@@ -111,7 +100,6 @@ export default function Dashboard() {
     setIsProcessing(true);
     try {
       const hedefHayvanId = bildirim.hayvanId || (bildirim.hayvan && bildirim.hayvan.id);
-      
       if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme') {
          const hayvanKontrol = await axios.get(`${API_URL}/hayvan/${hedefHayvanId}`);
          if (hayvanKontrol.data.durum === 'Sahiplendirildi') {
@@ -120,9 +108,7 @@ export default function Dashboard() {
             return;
          }
       }
-
       await axios.patch(`${API_URL}/bildirim/${bildirim.id}`, { durum: yeniDurum });
-
       if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme') {
         await axios.patch(`${API_URL}/hayvan/${hedefHayvanId}`, { durum: 'Sahiplendirildi' });
         const tumIstekler = await axios.get(`${API_URL}/bildirim`);
@@ -146,10 +132,9 @@ export default function Dashboard() {
     if(isProcessing)return; 
     setIsProcessing(true); 
     try { 
-      // Varsayılan olarak formdaki yazılı linki al
       let finalResimUrl = formData.resimUrl ? formData.resimUrl.trim() : "";
       
-      // Eğer dosya seçildiyse yükle ve linki değiştir
+      // Dosya seçilirse yüklemeyi dene ama uyarı ver
       if (selectedFile) { 
         const uploadData = new FormData(); 
         uploadData.append('file', selectedFile); 
@@ -157,17 +142,14 @@ export default function Dashboard() {
         finalResimUrl = uploadRes.data.url; 
       } 
       
-      // Eğer hiç resim yoksa placeholder koy
-      if (!finalResimUrl) {
-          finalResimUrl = "https://placehold.co/200";
-      }
+      if (!finalResimUrl) finalResimUrl = "https://placehold.co/200";
 
       const paket = { 
         ad: formData.ad, 
         yas: parseInt(formData.yas), 
         cinsiyet: formData.cinsiyet, 
         durum: formData.durum, 
-        resimUrl: finalResimUrl, // Temizlenmiş linki gönder
+        resimUrl: finalResimUrl, 
         irk: { id: parseInt(formData.irkId) }, 
         asilar: formData.secilenAsilar.map(id => ({ id: parseInt(id) })) 
       }; 
@@ -268,16 +250,18 @@ export default function Dashboard() {
                     {hayvanlar.map((hayvan) => (
                       <tr key={hayvan.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
-                            {/* DÜZELTİLDİ: Resim yüklenemezse konsola hatayı yazar ve placeholder gösterir */}
-                            <img 
-                                src={getImageUrl(hayvan.resimUrl)} 
-                                alt={hayvan.ad} 
-                                className="w-10 h-10 rounded-full object-cover border border-gray-200" 
-                                onError={(e) => { 
-                                    console.log("Resim hatası:", hayvan.resimUrl);
-                                    e.currentTarget.src = "https://placehold.co/100"; 
-                                }} 
-                            />
+                            {/* RESİM GÖSTERİCİ: Hata olursa konsola basar ve placeholder gösterir */}
+                            <div className="flex flex-col items-center">
+                                <img 
+                                    src={getImageUrl(hayvan.resimUrl)} 
+                                    alt={hayvan.ad} 
+                                    className="w-10 h-10 rounded-full object-cover border border-gray-200" 
+                                    onError={(e) => { 
+                                        console.log("RESİM YÜKLENEMEDİ:", hayvan.resimUrl);
+                                        e.currentTarget.src = "https://placehold.co/100"; 
+                                    }} 
+                                />
+                            </div>
                         </td>
                         <td className="px-6 py-4 font-bold text-gray-900">{hayvan.ad}</td>
                         <td className="px-6 py-4"><span className="bg-gray-100 px-2 py-1 rounded text-xs">{hayvan.irk ? hayvan.irk.ad : '-'}</span></td>
@@ -388,7 +372,7 @@ export default function Dashboard() {
                 <label className="block text-xs font-bold text-gray-500 mb-2">Resim Linki (veya Dosya)</label>
                 <div className="flex flex-col space-y-3">
                     <input type="text" placeholder="https://..." className="w-full border-gray-300 rounded-lg p-2 text-xs" value={formData.resimUrl} onChange={(e) => setFormData({...formData, resimUrl: e.target.value})} />
-                    <div className="text-center text-xs text-gray-400">- veya dosya seç -</div>
+                    <div className="text-center text-xs text-gray-400">- veya dosya seç (Geçici) -</div>
                     <input type="file" className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onChange={(e) => setSelectedFile(e.target.files[0])} />
                 </div>
                 
