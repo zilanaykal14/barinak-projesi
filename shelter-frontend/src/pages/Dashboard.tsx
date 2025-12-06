@@ -1,20 +1,30 @@
-
-
-
 // @ts-nocheck
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
+// AYIRDIĞIMIZ BİLEŞENLER (Grafik Silindi)
+import Sidebar from "../components/Sidebar";
+import Header from "../components/Header";
+import StatsCards from "../components/StatsCards";
+import AnimalTable from "../components/AnimalTable";
+import IhbarModal from "../components/IhbarModal";
+import AnimalFormModal from "../components/AnimalFormModal";
+
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  
+  // --- STATE VE DEĞİŞKENLER ---
+  const [user, setUser] = useState(null); 
   const [activeTab, setActiveTab] = useState("animals");
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // CANLI BACKEND ADRESİ
-  const API_URL = "https://barinak-projesi.onrender.com";
-
+// const API_URL = "https://barinak-projesi.onrender.com";
+// --- AKILLI BACKEND SEÇİCİ ---
+  // Eğer tarayıcıda "localhost" yazıyorsa kendi bilgisayarındaki backend'e bağlan (3001 veya 3333).
+  // Eğer canlı siteyse (onrender), canlı backend'e bağlan.
+  const API_URL = window.location.hostname === "localhost"
+    ? "http://localhost:3333"  // Bilgisayarında çalışırken burası devreye girer
+    : "https://barinak-projesi.onrender.com"; // Canlıya yüklediğinde burası devreye girer
   const [hayvanlar, setHayvanlar] = useState([]); 
   const [irklar, setIrklar] = useState([]);
   const [asilar, setAsilar] = useState([]);
@@ -31,6 +41,7 @@ export default function Dashboard() {
     ad: "", yas: "", cinsiyet: "Disi", durum: "Sahiplendirilebilir", resimUrl: "", irkId: "", cipNo: "", secilenAsilar: []
   });
 
+  // --- SAYFA AÇILIŞI ---
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (!storedUser) {
@@ -44,6 +55,7 @@ export default function Dashboard() {
 
   const bekleyenSayisi = bildirimler.filter(b => b.durum === 'Bekliyor').length;
 
+  // --- VERİ ÇEKME ---
   const fetchData = async (currentUser) => {
     try {
       const config = { headers: { "Cache-Control": "no-cache" } };
@@ -66,7 +78,7 @@ export default function Dashboard() {
     }
   };
 
-  // --- RESİM URL DÜZELTİCİ ---
+  // --- YARDIMCI FONKSİYONLAR ---
   const getImageUrl = (url) => {
     if (!url || url === "" || url === "null") return "https://placehold.co/100";
     let temizUrl = String(url).trim();
@@ -75,7 +87,20 @@ export default function Dashboard() {
     return `${API_URL}/${cleanPath}`;
   };
 
-  // --- İŞLEMLER ---
+  const handleCheckboxChange = (id) => { const s = formData.secilenAsilar; if(s.includes(id)) setFormData({...formData, secilenAsilar: s.filter(x=>x!==id)}); else setFormData({...formData, secilenAsilar: [...s, id]}); };
+  const handleAddIrk = async () => { const ad = window.prompt("Irk adı:"); if(ad) { await axios.post(`${API_URL}/irk`, { ad }); const r = await axios.get(`${API_URL}/irk`); setIrklar(r.data); } };
+  
+  const resetForm = () => { setEditingId(null); setSelectedFile(null); setFormData({ ad: "", yas: "", cinsiyet: "Disi", durum: "Sahiplendirilebilir", resimUrl: "", irkId: "", cipNo: "", secilenAsilar: [] }); };
+
+  const handleEdit = (hayvan) => { 
+      setEditingId(hayvan.id); 
+      const mevcutAsiIdleri = hayvan.asilar ? hayvan.asilar.map((a) => a.id.toString()) : []; 
+      setFormData({ ad: hayvan.ad, yas: hayvan.yas, cinsiyet: hayvan.cinsiyet, durum: hayvan.durum, resimUrl: hayvan.resimUrl || "", irkId: hayvan.irk ? hayvan.irk.id : "", secilenAsilar: mevcutAsiIdleri, cipNo: hayvan.cip ? hayvan.cip.numara : "" }); 
+      setSelectedFile(null); 
+      setIsModalOpen(true); 
+  };
+
+  // --- ANA İŞLEMLER ---
   const handleBildirimGuncelle = async (bildirim, yeniDurum) => {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -83,11 +108,7 @@ export default function Dashboard() {
       const hedefHayvanId = bildirim.hayvanId || (bildirim.hayvan && bildirim.hayvan.id);
       if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme') {
          const hayvanKontrol = await axios.get(`${API_URL}/hayvan/${hedefHayvanId}`);
-         if (hayvanKontrol.data.durum === 'Sahiplendirildi') {
-            alert("⚠️ BU HAYVAN BAŞKASINA VERİLDİ! İşlem iptal.");
-            window.location.reload(); 
-            return;
-         }
+         if (hayvanKontrol.data.durum === 'Sahiplendirildi') { alert("⚠️ BU HAYVAN BAŞKASINA VERİLDİ! İşlem iptal."); window.location.reload(); return; }
       }
       await axios.patch(`${API_URL}/bildirim/${bildirim.id}`, { durum: yeniDurum });
       if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme') {
@@ -100,12 +121,8 @@ export default function Dashboard() {
         for (const istek of digerleri) { await axios.patch(`${API_URL}/bildirim/${istek.id}`, { durum: 'Reddedildi' }); }
         alert("✅ İstek onaylandı! Diğerleri reddedildi.");
         window.location.reload();
-      } else {
-        alert(`İşlem: ${yeniDurum}`);
-        fetchData(user);
-      }
-    } catch (error) { alert("Hata oluştu."); } 
-    finally { setIsProcessing(false); }
+      } else { alert(`İşlem: ${yeniDurum}`); fetchData(user); }
+    } catch (error) { alert("Hata oluştu."); } finally { setIsProcessing(false); }
   };
 
   const handleSave = async (e) => { 
@@ -114,151 +131,58 @@ export default function Dashboard() {
     setIsProcessing(true); 
     try { 
       let finalResimUrl = formData.resimUrl ? formData.resimUrl.trim() : "";
-      
-      if (selectedFile) { 
-        const uploadData = new FormData(); 
-        uploadData.append('file', selectedFile); 
-        const uploadRes = await axios.post(`${API_URL}/upload`, uploadData); 
-        finalResimUrl = uploadRes.data.url; 
-      } 
-      
+      if (selectedFile) { const uploadData = new FormData(); uploadData.append('file', selectedFile); const uploadRes = await axios.post(`${API_URL}/upload`, uploadData); finalResimUrl = uploadRes.data.url; } 
       if (!finalResimUrl) finalResimUrl = "https://placehold.co/200";
-
-      const paket = { 
-        ad: formData.ad, 
-        yas: parseInt(formData.yas), 
-        cinsiyet: formData.cinsiyet, 
-        durum: formData.durum, 
-        resimUrl: finalResimUrl, 
-        irk: { id: parseInt(formData.irkId) }, 
-        asilar: formData.secilenAsilar.map(id => ({ id: parseInt(id) })) 
-      }; 
+      const paket = { ad: formData.ad, yas: parseInt(formData.yas), cinsiyet: formData.cinsiyet, durum: formData.durum, resimUrl: finalResimUrl, irk: { id: parseInt(formData.irkId) }, asilar: formData.secilenAsilar.map(id => ({ id: parseInt(id) })) }; 
       if (formData.cipNo) { paket.cip = { numara: formData.cipNo }; } 
-      
-      if (editingId) { await axios.patch(`${API_URL}/hayvan/${editingId}`, paket); alert("Güncellendi!"); } 
-      else { await axios.post(`${API_URL}/hayvan`, paket); alert("Eklendi!"); } 
-      
-      setIsModalOpen(false); 
-      fetchData(user); 
-      resetForm(); 
-    } catch (error) { 
-      console.error(error);
-      alert("Hata! (Veritabanı karakter sınırı veya sunucu hatası)"); 
-    } finally { setIsProcessing(false); } 
+      if (editingId) { await axios.patch(`${API_URL}/hayvan/${editingId}`, paket); alert("Güncellendi!"); } else { await axios.post(`${API_URL}/hayvan`, paket); alert("Eklendi!"); } 
+      setIsModalOpen(false); fetchData(user); resetForm(); 
+    } catch (error) { console.error(error); alert("Hata!"); } finally { setIsProcessing(false); } 
   };
 
   const handleIhbarGonder = async (e) => { e.preventDefault(); if(isProcessing)return; setIsProcessing(true); await axios.post(`${API_URL}/bildirim`, { tip: 'ihbar', mesaj: ihbarMesaj, gonderenAd: user.fullName, durum: 'Bekliyor' }); alert("İhbar iletildi!"); setIsIhbarOpen(false); setIhbarMesaj(""); fetchData(user); setIsProcessing(false); };
   const handleSahiplenmeIstegi = async (hayvan) => { if (window.confirm(`${hayvan.ad} için istek gönderilsin mi?`)) { if(isProcessing)return; setIsProcessing(true); try { await axios.post(`${API_URL}/bildirim`, { tip: 'sahiplenme', mesaj: `${hayvan.ad} isimli hayvana talibim (ID: ${hayvan.id}).`, gonderenAd: user.fullName, hayvanId: hayvan.id, durum: 'Bekliyor' }); alert("İstek gönderildi!"); fetchData(user); } catch (error) { alert("Hata!"); } finally { setIsProcessing(false); } } };
   const handleBildirimSil = async (id) => { if (window.confirm("Silinsin mi?")) { await axios.delete(`${API_URL}/bildirim/${id}`); fetchData(user); } };
   const handleDelete = async (id) => { if (window.confirm("Silinsin mi?")) { await axios.delete(`${API_URL}/hayvan/${id}`); setHayvanlar(hayvanlar.filter((h) => h.id !== id)); } };
-  
-  const handleEdit = (hayvan) => { 
-      setEditingId(hayvan.id); 
-      const mevcutAsiIdleri = hayvan.asilar ? hayvan.asilar.map((a) => a.id.toString()) : []; 
-      setFormData({ 
-          ad: hayvan.ad, 
-          yas: hayvan.yas, 
-          cinsiyet: hayvan.cinsiyet, 
-          durum: hayvan.durum, 
-          resimUrl: hayvan.resimUrl || "", 
-          irkId: hayvan.irk ? hayvan.irk.id : "", 
-          secilenAsilar: mevcutAsiIdleri, 
-          cipNo: hayvan.cip ? hayvan.cip.numara : "" 
-      }); 
-      setSelectedFile(null); 
-      setIsModalOpen(true); 
-  };
-  
-  const handleAddIrk = async () => { const ad = window.prompt("Irk adı:"); if(ad) { await axios.post(`${API_URL}/irk`, { ad }); const r = await axios.get(`${API_URL}/irk`); setIrklar(r.data); } };
-  const handleCheckboxChange = (id) => { const s = formData.secilenAsilar; if(s.includes(id)) setFormData({...formData, secilenAsilar: s.filter(x=>x!==id)}); else setFormData({...formData, secilenAsilar: [...s, id]}); };
-  const resetForm = () => { setEditingId(null); setSelectedFile(null); setFormData({ ad: "", yas: "", cinsiyet: "Disi", durum: "Sahiplendirilebilir", resimUrl: "", irkId: "", cipNo: "", secilenAsilar: [] }); };
 
   if (!user) return null;
 
+  // --- GÖRÜNÜM ---
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white shadow-sm border-b border-gray-200 px-8 py-4 flex justify-between items-center">
-        <div className="flex items-center space-x-3">
-            <div className="bg-blue-600 text-white p-2 rounded-lg font-bold text-xl">🐾</div>
-            <h1 className="text-xl font-bold text-gray-800">Barınak Paneli</h1>
-            {isProcessing && <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded animate-pulse">İşlem yapılıyor...</span>}
-        </div>
-        <div className="flex items-center space-x-4">
-            <div className="text-right"><p className="text-sm font-bold text-gray-800">{user.fullName}</p><p className="text-xs text-gray-500 uppercase">{user.role === 'manager' ? 'Yönetici' : 'Gönüllü'}</p></div>
-            <button onClick={() => { localStorage.removeItem("user"); navigate("/"); }} disabled={isProcessing} className="bg-red-50 text-red-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-100 transition">Çıkış</button>
-        </div>
-      </header>
+      <Header user={user} isProcessing={isProcessing} />
 
       <div className="flex flex-1 overflow-hidden">
-        <aside className="w-64 bg-white border-r border-gray-200 p-6 flex flex-col space-y-2">
-          <button onClick={() => setActiveTab("animals")} className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === "animals" ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-50"}`}><span>🐶</span><span>Hayvan Listesi</span></button>
-          
-          {user.role === 'manager' && (
-            <>
-              <button onClick={() => setActiveTab("users")} className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === "users" ? "bg-purple-50 text-purple-700" : "text-gray-600 hover:bg-gray-50"}`}><span>👥</span><span>Kullanıcılar</span></button>
-              <button onClick={() => setActiveTab("bildirimler")} className={`flex justify-between items-center w-full px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === "bildirimler" ? "bg-orange-50 text-orange-700" : "text-gray-600 hover:bg-gray-50"}`}>
-                  <div className="flex items-center space-x-3"><span>🔔</span><span>Gelen İstekler</span></div>
-                  {bekleyenSayisi > 0 && <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{bekleyenSayisi}</span>}
-              </button>
-              <button onClick={() => setActiveTab("sahiplenenler")} className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === "sahiplenenler" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50"}`}><span>🏠</span><span>Sahiplenenler</span></button>
-            </>
-          )}
-          
-          {user.role === 'volunteer' && (
-            <>
-              <button onClick={() => setActiveTab("basvurularim")} className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === "basvurularim" ? "bg-green-50 text-green-700" : "text-gray-600 hover:bg-gray-50"}`}><span>📝</span><span>Başvurularım</span></button>
-              <button onClick={() => setIsIhbarOpen(true)} className="mt-4 bg-orange-500 text-white px-4 py-3 rounded-lg text-sm font-bold hover:bg-orange-600 shadow-md">📢 Sokak Hayvanı Bildir</button>
-            </>
-          )}
-        </aside>
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          user={user} 
+          bekleyenSayisi={bekleyenSayisi} 
+          setIsIhbarOpen={setIsIhbarOpen} 
+        />
 
         <main className={`flex-1 p-8 overflow-y-auto ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}>
-          
           {activeTab === "animals" && (
             <div className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100"><h3 className="text-gray-400 text-xs font-bold uppercase">Toplam</h3><p className="text-3xl font-bold text-gray-800">{hayvanlar.length}</p></div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100"><h3 className="text-gray-400 text-xs font-bold uppercase">Sahiplendirilebilir</h3><p className="text-3xl font-bold text-green-600">{hayvanlar.filter(h => h.durum === 'Sahiplendirilebilir').length}</p></div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100"><h3 className="text-gray-400 text-xs font-bold uppercase">Tedavide</h3><p className="text-3xl font-bold text-orange-600">{hayvanlar.filter(h => h.durum === 'Tedavide').length}</p></div>
-              </div>
+              {/* İstatistikler */}
+              <StatsCards hayvanlar={hayvanlar} />
               
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center"><h2 className="text-lg font-bold text-gray-800">Hayvan Listesi</h2>{user.role === 'manager' && <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">+ Yeni Hayvan</button>}</div>
-                <table className="w-full text-left text-sm text-gray-600">
-                  <thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr><th className="px-6 py-4">Resim</th><th className="px-6 py-4">Adı</th><th className="px-6 py-4">Irk</th><th className="px-6 py-4">Çip</th><th className="px-6 py-4">Aşılar</th><th className="px-6 py-4">Durum</th><th className="px-6 py-4 text-right">İşlemler</th></tr></thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {hayvanlar.map((hayvan) => (
-                      <tr key={hayvan.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                            <div className="w-10 h-10 rounded-full border border-gray-200 overflow-hidden">
-                                <img 
-                                    src={getImageUrl(hayvan.resimUrl)} 
-                                    alt={hayvan.ad} 
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => { e.currentTarget.src = "https://placehold.co/100"; }} 
-                                />
-                            </div>
-                        </td>
-                        <td className="px-6 py-4 font-bold text-gray-900">{hayvan.ad}</td>
-                        <td className="px-6 py-4"><span className="bg-gray-100 px-2 py-1 rounded text-xs">{hayvan.irk ? hayvan.irk.ad : '-'}</span></td>
-                        <td className="px-6 py-4 font-mono text-xs text-gray-500">{hayvan.cip ? hayvan.cip.numara : '-'}</td>
-                        <td className="px-6 py-4"><div className="flex flex-wrap gap-1">{hayvan.asilar?.map((asi) => <span key={asi.id} className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">{asi.ad}</span>)}</div></td>
-                        <td className="px-6 py-4"><span className={`px-2 py-1 rounded text-xs font-bold ${hayvan.durum === 'Tedavide' ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'}`}>{hayvan.durum}</span></td>
-                        <td className="px-6 py-4 text-right space-x-2">
-                          {user.role === 'manager' ? (
-                            <><button onClick={() => handleEdit(hayvan)} className="text-blue-600 hover:text-blue-900 font-medium">Düzenle</button><button onClick={() => handleDelete(hayvan.id)} className="text-red-600 hover:text-red-900 font-medium">Sil</button></>
-                          ) : (hayvan.durum === 'Sahiplendirilebilir' && <button onClick={() => handleSahiplenmeIstegi(hayvan)} className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 transition shadow">Sahiplenme İsteği ❤️</button>)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {/* Tablo */}
+              <AnimalTable 
+                hayvanlar={hayvanlar}
+                user={user}
+                getImageUrl={getImageUrl}
+                handleEdit={handleEdit}
+                handleDelete={handleDelete}
+                handleSahiplenmeIstegi={handleSahiplenmeIstegi}
+                setIsModalOpen={setIsModalOpen}
+                resetForm={resetForm}
+              />
             </div>
           )}
 
           {activeTab === "basvurularim" && user.role === 'volunteer' && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="p-6 border-b border-gray-100"><h2 className="text-lg font-bold text-gray-800">Başvurularım 📝</h2></div>
                 <table className="w-full text-left text-sm text-gray-600">
                     <thead className="bg-blue-50 text-xs uppercase text-blue-700"><tr><th className="px-6 py-4">Tür</th><th className="px-6 py-4">Mesaj</th><th className="px-6 py-4">Durum</th></tr></thead>
@@ -276,7 +200,7 @@ export default function Dashboard() {
           )}
 
           {activeTab === "bildirimler" && user.role === 'manager' && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="p-6 border-b border-gray-100"><h2 className="text-lg font-bold text-gray-800">Gelen İstekler 🔔 ({bekleyenSayisi})</h2></div>
               <table className="w-full text-left text-sm text-gray-600">
                 <thead className="bg-orange-50 text-xs uppercase text-orange-700"><tr><th className="px-6 py-4">Durum</th><th className="px-6 py-4">Tür</th><th className="px-6 py-4">Gönderen</th><th className="px-6 py-4">Mesaj</th><th className="px-6 py-4 text-right">İşlem</th></tr></thead>
@@ -303,11 +227,11 @@ export default function Dashboard() {
           )}
           
           {activeTab === "sahiplenenler" && user.role === 'manager' && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"><div className="p-6 border-b border-gray-100"><h2 className="text-lg font-bold text-gray-800">Sahiplenenler 🏠</h2></div><table className="w-full text-left text-sm text-gray-600"><thead className="bg-green-50 text-xs uppercase text-green-700"><tr><th className="px-6 py-4">Sahiplenen Kişi</th><th className="px-6 py-4">Mesaj / Detay</th><th className="px-6 py-4">Durum</th></tr></thead><tbody className="divide-y divide-gray-100">{bildirimler.filter(b => b.tip === 'sahiplenme' && b.durum === 'Onaylandı').map((b) => (<tr key={b.id}><td className="px-6 py-4 font-bold text-gray-800">{b.gonderenAd}</td><td className="px-6 py-4">{b.mesaj}</td><td className="px-6 py-4"><span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold uppercase">Sahiplendi</span></td></tr>))}</tbody></table></div>
+             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"><div className="p-6 border-b border-gray-100"><h2 className="text-lg font-bold text-gray-800">Sahiplenenler 🏠</h2></div><table className="w-full text-left text-sm text-gray-600"><thead className="bg-green-50 text-xs uppercase text-green-700"><tr><th className="px-6 py-4">Sahiplenen Kişi</th><th className="px-6 py-4">Mesaj / Detay</th><th className="px-6 py-4">Durum</th></tr></thead><tbody className="divide-y divide-gray-100">{bildirimler.filter(b => b.tip === 'sahiplenme' && b.durum === 'Onaylandı').map((b) => (<tr key={b.id}><td className="px-6 py-4 font-bold text-gray-800">{b.gonderenAd}</td><td className="px-6 py-4">{b.mesaj}</td><td className="px-6 py-4"><span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold uppercase">Sahiplendi</span></td></tr>))}</tbody></table></div>
           )}
           
           {activeTab === "users" && user.role === 'manager' && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="p-6 border-b border-gray-100"><h2 className="text-lg font-bold text-gray-800">Kullanıcılar</h2></div>
               <table className="w-full text-left text-sm text-gray-600">
                 <thead className="bg-purple-50 text-xs uppercase text-purple-700"><tr><th className="px-6 py-4">Ad Soyad</th><th className="px-6 py-4">Email</th><th className="px-6 py-4">Rol</th></tr></thead>
@@ -318,67 +242,30 @@ export default function Dashboard() {
         </main>
       </div>
 
-      {isIhbarOpen && (<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"><div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6"><h3 className="font-bold text-lg mb-4 text-gray-800">Sokak Hayvanı Bildir 📢</h3><textarea className="w-full border rounded-lg p-3 text-sm" rows={4} placeholder="Detaylar..." value={ihbarMesaj} onChange={(e) => setIhbarMesaj(e.target.value)} disabled={isProcessing}></textarea><div className="flex justify-end space-x-2 mt-4"><button onClick={() => setIsIhbarOpen(false)} className="text-gray-500" disabled={isProcessing}>İptal</button><button onClick={handleIhbarGonder} className="bg-orange-500 text-white px-4 py-2 rounded" disabled={isProcessing}>Gönder</button></div></div></div>)}
-      
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-8 relative">
-            <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">✕</button>
-            <h3 className="font-bold text-2xl mb-6 text-gray-800">{editingId ? 'Hayvan Düzenle ✏️' : 'Yeni Hayvan Ekle 🐾'}</h3>
-            <form onSubmit={handleSave} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div><label className="block text-xs font-bold text-gray-500 mb-1">Adı</label><input type="text" required className="w-full border-gray-300 rounded-lg p-2.5 bg-gray-50 focus:ring-blue-500 focus:border-blue-500" value={formData.ad} onChange={(e) => setFormData({...formData, ad: e.target.value})} /></div>
-                <div><label className="block text-xs font-bold text-gray-500 mb-1">Yaş</label><input type="number" required className="w-full border-gray-300 rounded-lg p-2.5 bg-gray-50" value={formData.yas} onChange={(e) => setFormData({...formData, yas: e.target.value})} /></div>
-                <div><label className="block text-xs font-bold text-gray-500 mb-1">Cinsiyet</label><select className="w-full border-gray-300 rounded-lg p-2.5 bg-gray-50" value={formData.cinsiyet} onChange={(e) => setFormData({...formData, cinsiyet: e.target.value})}><option value="Disi">Dişi</option><option value="Erkek">Erkek</option></select></div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">Irk</label>
-                  <div className="flex gap-2">
-                    <select required className="w-full border-gray-300 rounded-lg p-2.5 bg-gray-50" value={formData.irkId} onChange={(e) => setFormData({...formData, irkId: e.target.value})}>
-                      <option value="">Seçiniz</option>
-                      {irklar.map((irk) => (<option key={irk.id} value={irk.id}>{irk.ad}</option>))}
-                    </select>
-                    <button type="button" onClick={handleAddIrk} className="bg-gray-200 hover:bg-gray-300 px-3 rounded-lg text-lg font-bold">+</button>
-                  </div>
-                </div>
-                <div><label className="block text-xs font-bold text-gray-500 mb-1">Durum</label><select className="w-full border-gray-300 rounded-lg p-2.5 bg-gray-50" value={formData.durum} onChange={(e) => setFormData({...formData, durum: e.target.value})}><option value="Sahiplendirilebilir">Sahiplendirilebilir</option><option value="Tedavide">Tedavide</option><option value="Sahiplendirildi">Sahiplendirildi</option><option value="Kayıp">Kayıp</option></select></div>
-                <div><label className="block text-xs font-bold text-gray-500 mb-1">Çip No</label><input type="text" className="w-full border-gray-300 rounded-lg p-2.5 bg-gray-50" placeholder="Opsiyonel" value={formData.cipNo} onChange={(e) => setFormData({...formData, cipNo: e.target.value})} /></div>
-              </div>
-              
-              <div className="p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                <label className="block text-sm font-bold text-red-600 mb-2">RESİM LİNKİNİ BURAYA YAPIŞTIR 👇</label>
-                <input type="text" placeholder="https://..." className="w-full border-2 border-blue-200 rounded-lg p-3 text-sm focus:border-blue-500 mb-3" value={formData.resimUrl} onChange={(e) => setFormData({...formData, resimUrl: e.target.value})} />
-                
-                <div className="text-center text-xs text-gray-400 mb-2">- VEYA BİLGİSAYARDAN SEÇ -</div>
-                <input type="file" className="w-full text-sm text-gray-500" onChange={(e) => setSelectedFile(e.target.files[0])} />
+      <IhbarModal 
+        isOpen={isIhbarOpen} 
+        onClose={() => setIsIhbarOpen(false)}
+        onSend={handleIhbarGonder}
+        message={ihbarMesaj}
+        setMessage={setIhbarMesaj}
+        isProcessing={isProcessing}
+      />
 
-                {formData.resimUrl && (
-                  <div className="mt-4 flex flex-col items-center">
-                    <div className="text-xs text-gray-500 mb-1">Önizleme:</div>
-                    <img src={getImageUrl(formData.resimUrl)} alt="Önizleme" className="h-32 w-32 object-cover rounded-lg border-2 border-gray-200 shadow-sm" onError={(e) => {e.target.style.display = 'none'}} />
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-2">Yapılan Aşılar</label>
-                <div className="flex flex-wrap gap-3">
-                  {asilar.map((asi) => (
-                    <label key={asi.id} className="flex items-center space-x-2 bg-white px-3 py-2 rounded-lg border shadow-sm cursor-pointer hover:bg-gray-50">
-                      <input type="checkbox" className="rounded text-blue-600 focus:ring-blue-500" checked={formData.secilenAsilar.includes(asi.id.toString())} onChange={() => handleCheckboxChange(asi.id.toString())} />
-                      <span className="text-sm text-gray-700">{asi.ad}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition" disabled={isProcessing}>İptal</button>
-                <button type="submit" className="px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 shadow-lg transition transform hover:scale-105" disabled={isProcessing}>{isProcessing ? 'Kaydediliyor...' : 'Kaydet'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AnimalFormModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleSave}
+        editingId={editingId}
+        formData={formData}
+        setFormData={setFormData}
+        irklar={irklar}
+        asilar={asilar}
+        handleAddIrk={handleAddIrk}
+        handleCheckboxChange={handleCheckboxChange}
+        setSelectedFile={setSelectedFile}
+        getImageUrl={getImageUrl}
+        isProcessing={isProcessing}
+      />
     </div>
   );
 }
