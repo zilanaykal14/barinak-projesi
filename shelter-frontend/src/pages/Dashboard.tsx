@@ -1,4 +1,6 @@
 
+
+
 // @ts-nocheck
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -64,34 +66,13 @@ export default function Dashboard() {
     }
   };
 
-  // --- EN SAĞLAM RESİM URL DÜZELTİCİ ---
+  // --- RESİM URL DÜZELTİCİ ---
   const getImageUrl = (url) => {
-    // 1. URL yoksa gri kutu
-    if (!url || url === "" || url === "undefined" || url === "null") return "https://placehold.co/100";
-    
-    // 2. String'e çevir ve boşlukları sil
+    if (!url || url === "" || url === "null") return "https://placehold.co/100";
     let temizUrl = String(url).trim();
-
-    // 3. WINDOWS SLASH (\) SORUNUNU DÜZELT (Ters slashları düze çevir)
-    temizUrl = temizUrl.replace(/\\/g, "/");
-
-    // 4. Eğer gerçek bir internet linkiyse (http/https) dokunma, döndür.
-    if (temizUrl.startsWith("http://") || temizUrl.startsWith("https://")) {
-        return temizUrl;
-    }
-
-    // 5. Eğer localhost kalıntısı varsa temizle ve canlı adresi koy
-    if (temizUrl.includes("localhost") || temizUrl.includes("127.0.0.1")) {
-         return temizUrl.replace(/http:\/\/localhost:\d+/, API_URL).replace(/http:\/\/127.0.0.1:\d+/, API_URL);
-    }
-
-    // 6. Eğer başında / varsa kaldır (çift slash olmasın diye)
-    if (temizUrl.startsWith("/")) {
-        temizUrl = temizUrl.substring(1);
-    }
-
-    // 7. Backend adresiyle birleştir
-    return `${API_URL}/${temizUrl}`;
+    if (temizUrl.startsWith("http")) return temizUrl;
+    const cleanPath = temizUrl.startsWith("/") ? temizUrl.substring(1) : temizUrl;
+    return `${API_URL}/${cleanPath}`;
   };
 
   // --- İŞLEMLER ---
@@ -134,7 +115,6 @@ export default function Dashboard() {
     try { 
       let finalResimUrl = formData.resimUrl ? formData.resimUrl.trim() : "";
       
-      // Dosya seçilirse yüklemeyi dene ama uyarı ver
       if (selectedFile) { 
         const uploadData = new FormData(); 
         uploadData.append('file', selectedFile); 
@@ -163,7 +143,7 @@ export default function Dashboard() {
       resetForm(); 
     } catch (error) { 
       console.error(error);
-      alert("Hata! İşlem tamamlanamadı."); 
+      alert("Hata! (Veritabanı karakter sınırı veya sunucu hatası)"); 
     } finally { setIsProcessing(false); } 
   };
 
@@ -250,16 +230,12 @@ export default function Dashboard() {
                     {hayvanlar.map((hayvan) => (
                       <tr key={hayvan.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
-                            {/* RESİM GÖSTERİCİ: Hata olursa konsola basar ve placeholder gösterir */}
-                            <div className="flex flex-col items-center">
+                            <div className="w-10 h-10 rounded-full border border-gray-200 overflow-hidden">
                                 <img 
                                     src={getImageUrl(hayvan.resimUrl)} 
                                     alt={hayvan.ad} 
-                                    className="w-10 h-10 rounded-full object-cover border border-gray-200" 
-                                    onError={(e) => { 
-                                        console.log("RESİM YÜKLENEMEDİ:", hayvan.resimUrl);
-                                        e.currentTarget.src = "https://placehold.co/100"; 
-                                    }} 
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => { e.currentTarget.src = "https://placehold.co/100"; }} 
                                 />
                             </div>
                         </td>
@@ -369,16 +345,16 @@ export default function Dashboard() {
               </div>
               
               <div className="p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                <label className="block text-xs font-bold text-gray-500 mb-2">Resim Linki (veya Dosya)</label>
-                <div className="flex flex-col space-y-3">
-                    <input type="text" placeholder="https://..." className="w-full border-gray-300 rounded-lg p-2 text-xs" value={formData.resimUrl} onChange={(e) => setFormData({...formData, resimUrl: e.target.value})} />
-                    <div className="text-center text-xs text-gray-400">- veya dosya seç (Geçici) -</div>
-                    <input type="file" className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onChange={(e) => setSelectedFile(e.target.files[0])} />
-                </div>
+                <label className="block text-sm font-bold text-red-600 mb-2">RESİM LİNKİNİ BURAYA YAPIŞTIR 👇</label>
+                <input type="text" placeholder="https://..." className="w-full border-2 border-blue-200 rounded-lg p-3 text-sm focus:border-blue-500 mb-3" value={formData.resimUrl} onChange={(e) => setFormData({...formData, resimUrl: e.target.value})} />
                 
+                <div className="text-center text-xs text-gray-400 mb-2">- VEYA BİLGİSAYARDAN SEÇ -</div>
+                <input type="file" className="w-full text-sm text-gray-500" onChange={(e) => setSelectedFile(e.target.files[0])} />
+
                 {formData.resimUrl && (
-                  <div className="mt-4 flex justify-center">
-                    <img src={formData.resimUrl} alt="Önizleme" className="h-32 w-32 object-cover rounded-lg border-2 border-gray-200 shadow-sm" onError={(e) => {e.target.style.display = 'none'}} />
+                  <div className="mt-4 flex flex-col items-center">
+                    <div className="text-xs text-gray-500 mb-1">Önizleme:</div>
+                    <img src={getImageUrl(formData.resimUrl)} alt="Önizleme" className="h-32 w-32 object-cover rounded-lg border-2 border-gray-200 shadow-sm" onError={(e) => {e.target.style.display = 'none'}} />
                   </div>
                 )}
               </div>
