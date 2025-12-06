@@ -63,20 +63,27 @@ export default function Dashboard() {
     }
   };
 
-  // --- RESİM GÖSTERİCİ ---
+  // --- DÜZELTİLMİŞ RESİM GÖSTERİCİ (Sorunun Çözümü Burada) ---
   const getImageUrl = (url) => {
     if (!url) return "https://placehold.co/100";
-    const strUrl = String(url);
-    if (strUrl.startsWith("http") && !strUrl.includes("127.0.0.1") && !strUrl.includes("localhost")) {
+    
+    const strUrl = String(url).trim();
+
+    // 1. Eğer link zaten tam bir internet adresiyse (http/https ile başlıyorsa) dokunma, olduğu gibi döndür.
+    if (strUrl.startsWith("http") || strUrl.startsWith("https")) {
         return strUrl;
     }
-    if (strUrl.includes("uploads") || strUrl.includes("127.0.0.1") || strUrl.includes("localhost")) {
-      const parcalar = strUrl.split("uploads");
-      const dosyaAdi = parcalar[parcalar.length - 1].replace(/\\/g, "/");
-      const temizYol = dosyaAdi.startsWith('/') ? dosyaAdi : '/' + dosyaAdi;
-      return `${API_URL}/uploads${temizYol}`;
+
+    // 2. Eğer localhost linki ise düzelt
+    if (strUrl.includes("localhost") || strUrl.includes("127.0.0.1")) {
+         // Localhost linkini backend url'e çevir
+         return strUrl.replace(/http:\/\/localhost:\d+/, API_URL).replace(/http:\/\/127.0.0.1:\d+/, API_URL);
     }
-    return `${API_URL}${strUrl}`;
+
+    // 3. Eğer sadece dosya yoluysa (örn: "uploads/resim.jpg") başına backend adresini ekle
+    // Başında "/" varsa temizle ki çift slash olmasın
+    const cleanPath = strUrl.startsWith('/') ? strUrl.slice(1) : strUrl;
+    return `${API_URL}/${cleanPath}`;
   };
 
   // --- İŞLEMLER ---
@@ -99,16 +106,12 @@ export default function Dashboard() {
 
       if (yeniDurum === 'Onaylandı' && bildirim.tip === 'sahiplenme') {
         await axios.patch(`${API_URL}/hayvan/${hedefHayvanId}`, { durum: 'Sahiplendirildi' });
-        
-        // Diğer bekleyen istekleri reddet
         const tumIstekler = await axios.get(`${API_URL}/bildirim`);
         const digerleri = tumIstekler.data.filter(b => {
              const bId = b.hayvanId || (b.hayvan && b.hayvan.id);
              return String(bId) === String(hedefHayvanId) && String(b.id) !== String(bildirim.id) && b.durum === 'Bekliyor';
         });
-        
         for (const istek of digerleri) { await axios.patch(`${API_URL}/bildirim/${istek.id}`, { durum: 'Reddedildi' }); }
-        
         alert("✅ İstek onaylandı! Diğerleri reddedildi.");
         window.location.reload();
       } else {
@@ -126,8 +129,8 @@ export default function Dashboard() {
     try { 
       let finalResimUrl = formData.resimUrl; 
       
+      // Eğer dosya seçildiyse yükle
       if (selectedFile) { 
-        // UYARI: Render.com gibi canlı sunucularda bu yükleme geçici olabilir.
         const uploadData = new FormData(); 
         uploadData.append('file', selectedFile); 
         const uploadRes = await axios.post(`${API_URL}/upload`, uploadData); 
@@ -139,7 +142,7 @@ export default function Dashboard() {
         yas: parseInt(formData.yas), 
         cinsiyet: formData.cinsiyet, 
         durum: formData.durum, 
-        // Eğer resim yoksa placeholder kullan
+        // Eğer hiçbir şey girilmediyse placeholder koy
         resimUrl: finalResimUrl || "https://placehold.co/200", 
         irk: { id: parseInt(formData.irkId) }, 
         asilar: formData.secilenAsilar.map(id => ({ id: parseInt(id) })) 
@@ -152,24 +155,34 @@ export default function Dashboard() {
       setIsModalOpen(false); fetchData(user); resetForm(); 
     } catch (error) { 
       console.error(error);
-      alert("Hata! Resim yolu veya sunucu hatası olabilir."); 
+      alert("Hata! İşlem tamamlanamadı."); 
     } finally { setIsProcessing(false); } 
   };
 
   const handleIhbarGonder = async (e) => { e.preventDefault(); if(isProcessing)return; setIsProcessing(true); await axios.post(`${API_URL}/bildirim`, { tip: 'ihbar', mesaj: ihbarMesaj, gonderenAd: user.fullName, durum: 'Bekliyor' }); alert("İhbar iletildi!"); setIsIhbarOpen(false); setIhbarMesaj(""); fetchData(user); setIsProcessing(false); };
-  
   const handleSahiplenmeIstegi = async (hayvan) => { if (window.confirm(`${hayvan.ad} için istek gönderilsin mi?`)) { if(isProcessing)return; setIsProcessing(true); try { await axios.post(`${API_URL}/bildirim`, { tip: 'sahiplenme', mesaj: `${hayvan.ad} isimli hayvana talibim (ID: ${hayvan.id}).`, gonderenAd: user.fullName, hayvanId: hayvan.id, durum: 'Bekliyor' }); alert("İstek gönderildi!"); fetchData(user); } catch (error) { alert("Hata!"); } finally { setIsProcessing(false); } } };
-  
   const handleBildirimSil = async (id) => { if (window.confirm("Silinsin mi?")) { await axios.delete(`${API_URL}/bildirim/${id}`); fetchData(user); } };
-  
   const handleDelete = async (id) => { if (window.confirm("Silinsin mi?")) { await axios.delete(`${API_URL}/hayvan/${id}`); setHayvanlar(hayvanlar.filter((h) => h.id !== id)); } };
   
-  const handleEdit = (hayvan) => { setEditingId(hayvan.id); const mevcutAsiIdleri = hayvan.asilar ? hayvan.asilar.map((a) => a.id.toString()) : []; setFormData({ ad: hayvan.ad, yas: hayvan.yas, cinsiyet: hayvan.cinsiyet, durum: hayvan.durum, resimUrl: hayvan.resimUrl || "", irkId: hayvan.irk ? hayvan.irk.id : "", secilenAsilar: mevcutAsiIdleri, cipNo: hayvan.cip ? hayvan.cip.numara : "" }); setSelectedFile(null); setIsModalOpen(true); };
+  const handleEdit = (hayvan) => { 
+      setEditingId(hayvan.id); 
+      const mevcutAsiIdleri = hayvan.asilar ? hayvan.asilar.map((a) => a.id.toString()) : []; 
+      setFormData({ 
+          ad: hayvan.ad, 
+          yas: hayvan.yas, 
+          cinsiyet: hayvan.cinsiyet, 
+          durum: hayvan.durum, 
+          resimUrl: hayvan.resimUrl || "", 
+          irkId: hayvan.irk ? hayvan.irk.id : "", 
+          secilenAsilar: mevcutAsiIdleri, 
+          cipNo: hayvan.cip ? hayvan.cip.numara : "" 
+      }); 
+      setSelectedFile(null); 
+      setIsModalOpen(true); 
+  };
   
   const handleAddIrk = async () => { const ad = window.prompt("Irk adı:"); if(ad) { await axios.post(`${API_URL}/irk`, { ad }); const r = await axios.get(`${API_URL}/irk`); setIrklar(r.data); } };
-  
   const handleCheckboxChange = (id) => { const s = formData.secilenAsilar; if(s.includes(id)) setFormData({...formData, secilenAsilar: s.filter(x=>x!==id)}); else setFormData({...formData, secilenAsilar: [...s, id]}); };
-  
   const resetForm = () => { setEditingId(null); setSelectedFile(null); setFormData({ ad: "", yas: "", cinsiyet: "Disi", durum: "Sahiplendirilebilir", resimUrl: "", irkId: "", cipNo: "", secilenAsilar: [] }); };
 
   if (!user) return null;
@@ -339,18 +352,18 @@ export default function Dashboard() {
               </div>
               
               <div className="p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                <label className="block text-xs font-bold text-gray-500 mb-2">Resim Yükle (Render'da geçici olabilir)</label>
-                <input type="file" className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onChange={(e) => setSelectedFile(e.target.files[0])} />
-                <div className="text-center my-2 text-xs text-gray-400">- veya link yapıştır -</div>
-                <input type="text" placeholder="https://..." className="w-full border-gray-300 rounded-lg p-2 text-xs" value={formData.resimUrl} onChange={(e) => setFormData({...formData, resimUrl: e.target.value})} />
+                <label className="block text-xs font-bold text-gray-500 mb-2">Resim Linki (veya Dosya)</label>
+                <div className="flex flex-col space-y-3">
+                    <input type="text" placeholder="https://..." className="w-full border-gray-300 rounded-lg p-2 text-xs" value={formData.resimUrl} onChange={(e) => setFormData({...formData, resimUrl: e.target.value})} />
+                    <div className="text-center text-xs text-gray-400">- veya dosya seç -</div>
+                    <input type="file" className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onChange={(e) => setSelectedFile(e.target.files[0])} />
+                </div>
                 
-                {/* YENİ EKLENEN ÖNİZLEME ALANI */}
                 {formData.resimUrl && (
                   <div className="mt-4 flex justify-center">
                     <img src={formData.resimUrl} alt="Önizleme" className="h-32 w-32 object-cover rounded-lg border-2 border-gray-200 shadow-sm" onError={(e) => {e.target.style.display = 'none'}} />
                   </div>
                 )}
-                 {/* ------------------------- */}
               </div>
 
               <div>
