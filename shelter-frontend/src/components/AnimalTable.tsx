@@ -1,7 +1,6 @@
 // @ts-nocheck
 import React from 'react';
 
-// Fonksiyonları (void) ve verileri (any) tanımlıyoruz
 interface AnimalTableProps {
   hayvanlar: any[];
   user: any;

@@ -1,11 +1,11 @@
 // @ts-nocheck
 import React from 'react';
 
-// Gelen verilerin tiplerini tanımlıyoruz
+
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  user: any; // Kullanıcı objesi (Detaylı tip yerine any kullandık, hata vermesin)
+  user: any; 
   bekleyenSayisi: number;
   setIsIhbarOpen: (isOpen: boolean) => void;
 }
@@ -20,7 +20,7 @@ export default function Sidebar({ activeTab, setActiveTab, user, bekleyenSayisi,
         <span>🐶</span><span>Hayvan Listesi</span>
       </button>
       
-      {user?.role === 'manager' && (
+      {user?.role === 'manager' && ( 
         <>
           <button onClick={() => setActiveTab("users")} className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === "users" ? "bg-purple-50 text-purple-700" : "text-gray-600 hover:bg-gray-50"}`}><span>👥</span><span>Kullanıcılar</span></button>
           <button onClick={() => setActiveTab("bildirimler")} className={`flex justify-between items-center w-full px-4 py-3 rounded-lg text-sm font-medium transition ${activeTab === "bildirimler" ? "bg-orange-50 text-orange-700" : "text-gray-600 hover:bg-gray-50"}`}>

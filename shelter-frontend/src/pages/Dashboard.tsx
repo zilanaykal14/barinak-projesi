@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-// AYIRDIĞIMIZ BİLEŞENLER (Grafik Silindi)
+
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import StatsCards from "../components/StatsCards";
@@ -14,17 +14,14 @@ import AnimalFormModal from "../components/AnimalFormModal";
 export default function Dashboard() {
   const navigate = useNavigate();
   
-  // --- STATE VE DEĞİŞKENLER ---
+
   const [user, setUser] = useState(null); 
   const [activeTab, setActiveTab] = useState("animals");
   const [isProcessing, setIsProcessing] = useState(false);
-// const API_URL = "https://barinak-projesi.onrender.com";
-// --- AKILLI BACKEND SEÇİCİ ---
-  // Eğer tarayıcıda "localhost" yazıyorsa kendi bilgisayarındaki backend'e bağlan (3001 veya 3333).
-  // Eğer canlı siteyse (onrender), canlı backend'e bağlan.
+
   const API_URL = window.location.hostname === "localhost"
-    ? "http://localhost:3333"  // Bilgisayarında çalışırken burası devreye girer
-    : "https://barinak-projesi.onrender.com"; // Canlıya yüklediğinde burası devreye girer
+    ? "http://localhost:3333" 
+    : "https://barinak-projesi.onrender.com";
   const [hayvanlar, setHayvanlar] = useState([]); 
   const [irklar, setIrklar] = useState([]);
   const [asilar, setAsilar] = useState([]);
@@ -41,7 +38,7 @@ export default function Dashboard() {
     ad: "", yas: "", cinsiyet: "Disi", durum: "Sahiplendirilebilir", resimUrl: "", irkId: "", cipNo: "", secilenAsilar: []
   });
 
-  // --- SAYFA AÇILIŞI ---
+
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (!storedUser) {
@@ -55,7 +52,6 @@ export default function Dashboard() {
 
   const bekleyenSayisi = bildirimler.filter(b => b.durum === 'Bekliyor').length;
 
-  // --- VERİ ÇEKME ---
   const fetchData = async (currentUser) => {
     try {
       const config = { headers: { "Cache-Control": "no-cache" } };
@@ -78,7 +74,6 @@ export default function Dashboard() {
     }
   };
 
-  // --- YARDIMCI FONKSİYONLAR ---
   const getImageUrl = (url) => {
     if (!url || url === "" || url === "null") return "https://placehold.co/100";
     let temizUrl = String(url).trim();
@@ -100,7 +95,7 @@ export default function Dashboard() {
       setIsModalOpen(true); 
   };
 
-  // --- ANA İŞLEMLER ---
+ 
   const handleBildirimGuncelle = async (bildirim, yeniDurum) => {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -147,7 +142,7 @@ export default function Dashboard() {
 
   if (!user) return null;
 
-  // --- GÖRÜNÜM ---
+  
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header user={user} isProcessing={isProcessing} />
@@ -164,10 +159,10 @@ export default function Dashboard() {
         <main className={`flex-1 p-8 overflow-y-auto ${isProcessing ? 'opacity-50 pointer-events-none' : ''}`}>
           {activeTab === "animals" && (
             <div className="space-y-8">
-              {/* İstatistikler */}
+              {}
               <StatsCards hayvanlar={hayvanlar} />
               
-              {/* Tablo */}
+              {}
               <AnimalTable 
                 hayvanlar={hayvanlar}
                 user={user}

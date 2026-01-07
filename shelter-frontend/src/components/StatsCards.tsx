@@ -2,7 +2,7 @@
 import React from 'react';
 
 interface StatsCardsProps {
-  hayvanlar: any[]; // Hayvan listesi bir dizidir (array)
+  hayvanlar: any[]; 
 }
 
 export default function StatsCards({ hayvanlar }: StatsCardsProps) {

@@ -10,7 +10,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
 
-  // CANLI BACKEND ADRESİ
+ 
   const API_URL = "https://barinak-projesi.onrender.com";
 
   const handleLogin = async (e: React.FormEvent) => {
