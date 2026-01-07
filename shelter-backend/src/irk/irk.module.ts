@@ -5,7 +5,7 @@ import { IrkController } from './irk.controller';
 import { Irk } from './entities/irk.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Irk])], // Veritabanına tanıttık
+  imports: [TypeOrmModule.forFeature([Irk])], 
   controllers: [IrkController],
   providers: [IrkService],
 })

@@ -13,13 +13,13 @@ export class HayvanService {
   ) {}
 
   create(createHayvanDto: CreateHayvanDto) {
-    // .save() metodu ilişkileri (çip, aşı) otomatik yönetir
+    
     return this.hayvanRepository.save(createHayvanDto);
   }
 
   findAll() {
     return this.hayvanRepository.find({
-      relations: ['irk', 'asilar', 'cip'], // Tüm detayları getir
+      relations: ['irk', 'asilar', 'cip'], 
     });
   }
 
@@ -31,7 +31,7 @@ export class HayvanService {
   }
 
   async update(id: number, updateHayvanDto: UpdateHayvanDto) {
-    // Güncelleme için önce veriyi hazırla (preload), sonra kaydet (save)
+    
     const hayvan = await this.hayvanRepository.preload({
       id: +id,
       ...updateHayvanDto,

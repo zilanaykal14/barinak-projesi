@@ -16,9 +16,9 @@ export class UsersService {
     return this.userRepository.save(createUserDto);
   }
 
-  // İŞTE DÜZELTTİĞİMİZ KISIM BURASI:
+
   findAll() {
-    return this.userRepository.find(); // Artık "yazı" değil, "veri" dönecek
+    return this.userRepository.find(); 
   }
 
   findOne(id: number) {

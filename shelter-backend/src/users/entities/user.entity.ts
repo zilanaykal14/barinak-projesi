@@ -1,7 +1,7 @@
 
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-// Kullanıcı rollerini tanımlıyoruz (Enum yapısı)
+
 export enum UserRole {
   MANAGER = 'manager',
   VOLUNTEER = 'volunteer',
@@ -10,9 +10,9 @@ export enum UserRole {
 @Entity()
 export class User {
   @PrimaryGeneratedColumn()
-  id: number; // Otomatik artan numara (1, 2, 3...)
+  id: number; 
 
-  @Column({ unique: true }) // Aynı mailden iki tane olamaz
+  @Column({ unique: true }) 
   email: string;
 
   @Column()
@@ -24,7 +24,7 @@ export class User {
   @Column({
     type: 'enum',
     enum: UserRole,
-    default: UserRole.VOLUNTEER, // Varsayılan rol Gönüllü olsun
+    default: UserRole.VOLUNTEER, 
   })
   role: UserRole;
 }

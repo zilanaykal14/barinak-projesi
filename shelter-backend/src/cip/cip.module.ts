@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm'; // <-- Bu eksikti
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { CipService } from './cip.service';
 import { CipController } from './cip.controller';
-import { Cip } from './entities/cip.entity'; // <-- Bu eksikti
+import { Cip } from './entities/cip.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Cip])], // <-- İŞTE ÇÖZÜM BURASI
+  imports: [TypeOrmModule.forFeature([Cip])], 
   controllers: [CipController],
   providers: [CipService],
 })

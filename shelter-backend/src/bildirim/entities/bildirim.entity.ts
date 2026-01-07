@@ -6,17 +6,15 @@ export class Bildirim {
   id: number;
 
   @Column()
-  tip: string; // 'ihbar' veya 'sahiplenme'
+  tip: string; 
 
   @Column()
-  mesaj: string; // "X sokakta yaralı kedi" veya "Pamuk isimli kediyi istiyorum"
-
-  @Column()
-  gonderenAd: string; // Kim gönderdi?
+  mesaj: string; 
+  gonderenAd: string; 
 
   @Column({ nullable: true })
-  hayvanId: number; // Sahiplenme ise hangi hayvan? (Yoksa boş)
+  hayvanId: number; 
 
   @Column({ default: 'Bekliyor' })
-  durum: string; // 'Bekliyor', 'Onaylandı'
+  durum: string; 
 }

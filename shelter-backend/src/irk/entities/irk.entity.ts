@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
-import { Hayvan } from '../../hayvan/entities/hayvan.entity'; // Hayvan'ı çağırdık
+import { Hayvan } from '../../hayvan/entities/hayvan.entity'; 
 
 @Entity()
 export class Irk {
@@ -12,7 +12,7 @@ export class Irk {
   @Column({ nullable: true })
   aciklama: string;
 
-  // İLİŞKİ (1 Irk -> N Hayvan)
+ 
   @OneToMany(() => Hayvan, (hayvan) => hayvan.irk)
   hayvanlar: Hayvan[];
 }

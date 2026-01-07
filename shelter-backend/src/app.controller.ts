@@ -13,20 +13,20 @@ export class AppController {
     return this.appService.getHello();
   }
 
-  // --- RESİM YÜKLEME ENDPOINT'İ ---
+ 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file', {
     storage: diskStorage({
-      destination: './uploads', // Dosyalar buraya kaydedilecek
+      destination: './uploads', 
       filename: (req, file, cb) => {
-        // Dosya ismini rastgele yap (Çakışma olmasın)
+       
         const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
         cb(null, `${randomName}${extname(file.originalname)}`);
       }
     })
   }))
   uploadFile(@UploadedFile() file: Express.Multer.File) {
-    // Yükleme bitince Frontend'e resmin yeni adresini dön
+    
     return { url: `http://127.0.0.1:3333/uploads/${file.filename}` };
   }
 }

@@ -16,9 +16,8 @@ export class AsiService {
     return this.asiRepository.save(createAsiDto);
   }
 
-  // BURASI HATALIYDI, ŞİMDİ DÜZELDİ:
   findAll() {
-    return this.asiRepository.find(); // Artık gerçek aşı listesini döndürecek
+    return this.asiRepository.find(); 
   }
 
   findOne(id: number) {

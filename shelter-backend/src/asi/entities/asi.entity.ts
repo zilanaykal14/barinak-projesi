@@ -6,8 +6,8 @@ export class Asi {
   id: number;
 
   @Column()
-  ad: string; // Örn: 'Kuduz', 'Karma 1'
+  ad: string; 
 
   @Column({ nullable: true })
-  tur: string; // Örn: 'Viral', 'Bakteriyel'
+  tur: string; 
 }

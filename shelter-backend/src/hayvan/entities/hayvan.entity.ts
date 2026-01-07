@@ -23,16 +23,15 @@ export class Hayvan {
   @Column({ nullable: true })
   resimUrl: string;
 
-  // 1:N İlişki (Irk)
+  
   @ManyToOne(() => Irk, (irk) => irk.hayvanlar, { onDelete: 'SET NULL' })
   irk: Irk;
 
-  // N:M İlişki (Aşılar)
+  
   @ManyToMany(() => Asi)
   @JoinTable()
   asilar: Asi[];
 
-  // 1:1 İlişki (Mikroçip) - cascade: true sayesinde hayvanla beraber çip de kaydedilir
   @OneToOne(() => Cip, { cascade: true, eager: true })
   @JoinColumn()
   cip: Cip;

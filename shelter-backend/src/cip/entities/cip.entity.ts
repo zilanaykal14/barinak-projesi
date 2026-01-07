@@ -6,10 +6,10 @@ export class Cip {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true }) // Her çip numarası benzersiz olmalı
+  @Column({ unique: true }) 
   numara: string;
 
-  // Çipin bağlı olduğu hayvan (Tersten erişim için)
+  
   @OneToOne(() => Hayvan, (hayvan) => hayvan.cip)
   hayvan: Hayvan;
 }

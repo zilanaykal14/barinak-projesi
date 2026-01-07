@@ -18,13 +18,13 @@ import { BildirimModule } from './bildirim/bildirim.module';
       serveRoot: '/uploads',
     }),
     TypeOrmModule.forRoot({
-      // EĞER RENDER'DAYSAK POSTGRES, YOKSA MYSQL KULLAN
+      
       type: process.env.DATABASE_URL ? 'postgres' : 'mysql',
       
-      // RENDER AYARLARI (Otomatik alır)
+  
       url: process.env.DATABASE_URL,
       
-      // LOCAL (SENİN BİLGİSAYARIN) AYARLARI
+   
       host: process.env.DATABASE_URL ? undefined : '127.0.0.1',
       port: process.env.DATABASE_URL ? undefined : 3306,
       username: process.env.DATABASE_URL ? undefined : 'root',
@@ -32,9 +32,8 @@ import { BildirimModule } from './bildirim/bildirim.module';
       database: process.env.DATABASE_URL ? undefined : 'shelter_db',
       
       autoLoadEntities: true,
-      synchronize: true, // Tabloları otomatik oluşturur
+      synchronize: true, 
       
-      // SSL Ayarı (Render için zorunlu)
       ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
     }),
     UsersModule,
