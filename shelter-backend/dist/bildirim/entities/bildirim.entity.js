@@ -15,9 +15,9 @@ let Bildirim = class Bildirim {
     id;
     tip;
     mesaj;
-    gonderenAd;
     hayvanId;
     durum;
+    gonderenAd;
 };
 exports.Bildirim = Bildirim;
 __decorate([
@@ -33,10 +33,6 @@ __decorate([
     __metadata("design:type", String)
 ], Bildirim.prototype, "mesaj", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
-    __metadata("design:type", String)
-], Bildirim.prototype, "gonderenAd", void 0);
-__decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", Number)
 ], Bildirim.prototype, "hayvanId", void 0);
@@ -44,6 +40,10 @@ __decorate([
     (0, typeorm_1.Column)({ default: 'Bekliyor' }),
     __metadata("design:type", String)
 ], Bildirim.prototype, "durum", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Bildirim.prototype, "gonderenAd", void 0);
 exports.Bildirim = Bildirim = __decorate([
     (0, typeorm_1.Entity)()
 ], Bildirim);

@@ -10,11 +10,12 @@ export class Bildirim {
 
   @Column()
   mesaj: string; 
-  gonderenAd: string; 
 
   @Column({ nullable: true })
   hayvanId: number; 
 
   @Column({ default: 'Bekliyor' })
   durum: string; 
+  @Column({ nullable: true }) 
+  gonderenAd: string;
 }

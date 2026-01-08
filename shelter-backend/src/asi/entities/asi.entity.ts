@@ -6,7 +6,7 @@ export class Asi {
   id: number;
 
   @Column()
-  ad: string; 
+  ad: string;  
 
   @Column({ nullable: true })
   tur: string; 

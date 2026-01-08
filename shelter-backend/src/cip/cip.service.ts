@@ -1,26 +1,39 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm'; 
+import { Repository } from 'typeorm'; 
 import { CreateCipDto } from './dto/create-cip.dto';
 import { UpdateCipDto } from './dto/update-cip.dto';
+import { Cip } from './entities/cip.entity'; 
 
 @Injectable()
 export class CipService {
+ 
+  constructor(
+    @InjectRepository(Cip)
+    private cipRepository: Repository<Cip>,
+  ) {}
+
+
   create(createCipDto: CreateCipDto) {
-    return 'This action adds a new cip';
+    return this.cipRepository.save(createCipDto);
   }
 
   findAll() {
-    return `This action returns all cip`;
+    return this.cipRepository.find(); 
   }
 
   findOne(id: number) {
-    return `This action returns a #${id} cip`;
+  
+    return this.cipRepository.findOneBy({ id });
   }
 
   update(id: number, updateCipDto: UpdateCipDto) {
-    return `This action updates a #${id} cip`;
+ 
+    return this.cipRepository.update(id, updateCipDto);
   }
 
   remove(id: number) {
-    return `This action removes a #${id} cip`;
+
+    return this.cipRepository.delete(id);
   }
 }
