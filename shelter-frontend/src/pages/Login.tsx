@@ -11,24 +11,27 @@ export default function Login() {
   const [fullName, setFullName] = useState("");
 
  
-  const API_URL = "https://barinak-projesi.onrender.com";
-
+  const API_URL = window.location.hostname === "localhost"
+    ? "http://localhost:3333" 
+    : "https://barinak-projesi.onrender.com";
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await axios.get(`${API_URL}/users`);
-      const users = response.data;
-      const user = users.find((u: any) => u.email === email && u.password === password);
+       
+      const response = await axios.post(`${API_URL}/users/login`, {
+        email: email,
+        password: password
+      });
 
-      if (user) {
-        localStorage.setItem("user", JSON.stringify(user));
+      
+      if (response.data) {
+        localStorage.setItem("user", JSON.stringify(response.data));
         navigate("/dashboard");
-      } else {
-        alert("Hatalı Email veya Şifre!");
-      }
+      } 
     } catch (error) {
       console.error("Giriş Hatası:", error);
-      alert("Sunucuya bağlanılamadı! İnternet bağlantınızı kontrol edin.");
+
+      alert("Hatalı Email veya Şifre!");
     }
   };
 
