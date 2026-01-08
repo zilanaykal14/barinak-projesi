@@ -16,6 +16,7 @@ export class Bildirim {
 
   @Column({ default: 'Bekliyor' })
   durum: string; 
+  
   @Column({ nullable: true }) 
   gonderenAd: string;
 }
