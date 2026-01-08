@@ -44,4 +44,18 @@ export class UsersService {
   remove(id: number) {
     return this.userRepository.delete(id);
   }
+  async login(email: string, sifre: string): Promise<User | null> {
+
+    const user = await this.userRepository.findOne({ where: { email } });
+    
+
+    if (user && await bcrypt.compare(sifre, user.password)) {
+
+      const { password, ...result } = user; 
+      return result as User;
+    }
+    
+   
+    return null;
+  }
 }

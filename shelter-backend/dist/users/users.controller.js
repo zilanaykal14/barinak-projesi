@@ -37,6 +37,13 @@ let UsersController = class UsersController {
     remove(id) {
         return this.usersService.remove(+id);
     }
+    async login(body) {
+        const user = await this.usersService.login(body.email, body.password);
+        if (!user) {
+            throw new common_1.NotFoundException('Hatalı Email veya Şifre');
+        }
+        return user;
+    }
 };
 exports.UsersController = UsersController;
 __decorate([
@@ -74,6 +81,13 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Post)('login'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "login", null);
 exports.UsersController = UsersController = __decorate([
     (0, common_1.Controller)('users'),
     __metadata("design:paramtypes", [users_service_1.UsersService])

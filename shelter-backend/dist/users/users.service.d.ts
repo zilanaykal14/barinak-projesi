@@ -10,4 +10,5 @@ export declare class UsersService {
     findOne(id: number): Promise<User | null>;
     update(id: number, updateUserDto: UpdateUserDto): Promise<import("typeorm").UpdateResult>;
     remove(id: number): Promise<import("typeorm").DeleteResult>;
+    login(email: string, sifre: string): Promise<User | null>;
 }

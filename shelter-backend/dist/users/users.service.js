@@ -76,6 +76,14 @@ let UsersService = class UsersService {
     remove(id) {
         return this.userRepository.delete(id);
     }
+    async login(email, sifre) {
+        const user = await this.userRepository.findOne({ where: { email } });
+        if (user && await bcrypt.compare(sifre, user.password)) {
+            const { password, ...result } = user;
+            return result;
+        }
+        return null;
+    }
 };
 exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([
